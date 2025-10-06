@@ -1,0 +1,46 @@
+{
+  "name": "content_repurposing",
+  "version": "1.0",
+  "description": "Transform blog content into multiple social media formats. Params: {blog_content}",
+  "trigger_patterns": [
+    ".*repurpose.*content.*",
+    ".*social.*media.*from.*blog.*",
+    ".*multi.*platform.*post.*"
+  ],
+
+  "nodes": [
+    {
+      "id": "analyze_blog",
+      "agent": "analyst",
+      "instruction": "Analyze this blog post and extract:\n1. Main thesis\n2. Key points (3-5)\n3. Target audience\n4. Tone\n\nBlog:\n{blog_content}",
+      "timeout": 120
+    },
+    {
+      "id": "create_tweet_thread",
+      "agent": "writer",
+      "instruction": "Create Twitter/X thread (10-15 tweets) based on:\n{analyze_blog}\n\nRules:\n- First tweet: hook\n- Each tweet max 280 chars\n- Use emojis\n- End with CTA",
+      "depends_on": ["analyze_blog"],
+      "parallel_group": "social_content"
+    },
+    {
+      "id": "create_linkedin",
+      "agent": "writer",
+      "instruction": "Create LinkedIn post based on:\n{analyze_blog}\n\nRules:\n- Professional tone\n- 1300-2000 chars\n- Include 3-5 hashtags\n- Add question for engagement",
+      "depends_on": ["analyze_blog"],
+      "parallel_group": "social_content"
+    },
+    {
+      "id": "create_summary",
+      "agent": "writer",
+      "instruction": "Create executive summary (200 words) from:\n{analyze_blog}\n\nFormat: bullet points",
+      "depends_on": ["analyze_blog"],
+      "parallel_group": "social_content"
+    },
+    {
+      "id": "compile_report",
+      "agent": "writer",
+      "instruction": "Compile final multi-platform content package:\n\n## Twitter Thread\n{create_tweet_thread}\n\n## LinkedIn\n{create_linkedin}\n\n## Summary\n{create_summary}",
+      "depends_on": ["create_tweet_thread", "create_linkedin", "create_summary"]
+    }
+  ]
+}

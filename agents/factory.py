@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 async def get_available_tools() -> tuple[List[BaseTool], str]:
     """
-    Get list of proxy tools for currently available agents.
+    Get list of proxy tools for currently available agents and MCP tools.
 
     Returns:
         Tuple of (tools list, updated system prompt)
@@ -52,16 +52,43 @@ async def get_available_tools() -> tuple[List[BaseTool], str]:
             "3. **write_content**: Writer - creates professional, well-structured written content"
         )
 
-    # Log available tools
+    # Log available core tools
     logger.info(
-        f"Loaded {len(tools)} tools for agents: {available_agents}"
+        f"Loaded {len(tools)} core agent tools: {available_agents}"
     )
+
+    # Add MCP tools if MCP integration is enabled
+    if settings.mcp_enable:
+        try:
+            from utils.mcp_client import get_mcp_langchain_tools
+
+            mcp_tools = await get_mcp_langchain_tools()
+
+            if mcp_tools:
+                # Add MCP tools to the list
+                tools.extend(mcp_tools)
+
+                # Add MCP tools to descriptions
+                tool_descriptions.append("\n**MCP TOOLS (External):**")
+                for idx, mcp_tool in enumerate(mcp_tools, start=len(tool_descriptions)):
+                    tool_descriptions.append(
+                        f"{idx}. **{mcp_tool.name}**: {mcp_tool.description}"
+                    )
+
+                logger.info(
+                    f"Loaded {len(mcp_tools)} MCP tools from external servers"
+                )
+        except Exception as e:
+            logger.error(f"Error loading MCP tools: {e}")
+            # Continue without MCP tools
 
     # Generate dynamic system prompt section
     if tool_descriptions:
         tools_section = "AVAILABLE AGENTS (via tools):\n" + "\n".join(tool_descriptions)
     else:
         tools_section = "⚠️ WARNING: No specialized agents are currently available.\nYou can still respond to queries based on your own knowledge, but cannot delegate tasks."
+
+    logger.info(f"Total tools available: {len(tools)}")
 
     return tools, tools_section
 

@@ -5,6 +5,8 @@ All configuration is loaded from environment variables or .env file.
 
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
+import re
 
 
 class Settings(BaseSettings):
@@ -196,10 +198,59 @@ class Settings(BaseSettings):
     agent_retry_attempts: int = 3
     agent_health_check_interval: float = 30.0  # seconds
 
+    # ============================================================================
+    # MCP SERVERS INTEGRATION
+    # ============================================================================
+
+    # Enable MCP server integration
+    mcp_enable: bool = False  # Master switch for MCP integration
+
+    # MCP Server Configuration Format:
+    # Define servers using prefix: MCP_SERVER_{NAME}_*
+    # Example in .env:
+    #   MCP_SERVER_CORPORATE_TYPE=remote
+    #   MCP_SERVER_CORPORATE_TRANSPORT=streamable_http
+    #   MCP_SERVER_CORPORATE_URL=http://localhost:8001/mcp
+    #   MCP_SERVER_CORPORATE_API_KEY=secret123
+    #   MCP_SERVER_CORPORATE_ENABLED=true
+
+    # This will be populated dynamically from environment variables
+    # at runtime by parsing all MCP_SERVER_* variables
+    mcp_servers: dict = {}
+
+    # MCP Client Configuration
+    mcp_client_retry_attempts: int = 3
+    mcp_client_timeout: float = 30.0
+    mcp_health_check_interval: float = 60.0  # seconds
+
+    # MCP Tools in ReAct Pattern
+    # Controls how MCP tools are integrated into the ReAct reasoning cycle
+    mcp_tools_enable_logging: bool = True  # Log MCP tool calls in ReAct
+    mcp_tools_enable_reflection: bool = False  # Apply reflection to MCP tool results
+    mcp_tools_timeout_multiplier: float = 1.5  # Multiply agent timeout for MCP tools
+
+    # Supervisor as MCP Server
+    supervisor_mcp_enable: bool = False  # Expose supervisor as MCP server
+    supervisor_mcp_path: str = "/mcp"  # Endpoint path for MCP
+    supervisor_mcp_transport: str = "streamable_http"  # Transport type
+
+    # ========================================================================
+    # WORKFLOW SYSTEM
+    # ========================================================================
+
+    # Workflow Mode Configuration
+    workflow_enable: bool = False
+    workflow_mode: str = "hybrid"  # "react", "template", "hybrid"
+    workflow_templates_dir: Optional[str] = None  # Default: workflows/templates
+    workflow_auto_classify: bool = True  # Auto-match templates from user input
+    workflow_fallback_to_react: bool = True  # Use ReAct if workflow fails
+    workflow_parallel_max_workers: int = 5  # Max parallel node execution
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"  # Allow extra env vars (for MCP_SERVER_* pattern)
 
     @property
     def supervisor_url(self) -> str:
@@ -245,6 +296,38 @@ class Settings(BaseSettings):
 
         return agents
 
+    def parse_mcp_servers(self) -> dict:
+        """
+        Parse MCP server configurations from environment variables.
+
+        Looks for variables with pattern: MCP_SERVER_{NAME}_{PARAM}
+        and builds a dictionary of server configurations.
+
+        Returns:
+            Dictionary mapping server_name to server config dict
+        """
+        servers = {}
+
+        # Pattern to match MCP_SERVER_* variables
+        pattern = re.compile(r'^mcp_server_([a-z_]+)_([a-z_]+)$', re.IGNORECASE)
+
+        # Get all model fields and their values (includes those loaded from .env)
+        model_dump = self.model_dump()
+
+        for key, value in model_dump.items():
+            match = pattern.match(key)
+            if match:
+                server_name = match.group(1).lower()
+                param_name = match.group(2).lower()
+
+                if server_name not in servers:
+                    servers[server_name] = {}
+
+                # Value is already converted by Pydantic
+                servers[server_name][param_name] = value
+
+        return servers
+
     def is_agent_enabled(self, agent_id: str) -> bool:
         """
         Check if a specific agent is enabled.
@@ -261,6 +344,36 @@ class Settings(BaseSettings):
 # Global settings instance
 settings = Settings()
 
+# Parse MCP servers from environment variables if MCP is enabled
+if settings.mcp_enable:
+    # Load .env manually to get MCP_SERVER_* variables
+    from dotenv import dotenv_values
+    env_vars = dotenv_values(".env")
+
+    # Parse MCP servers from loaded env vars
+    servers = {}
+    import re
+    pattern = re.compile(r'^MCP_SERVER_([A-Z_]+)_([A-Z_]+)$')
+
+    for key, value in env_vars.items():
+        match = pattern.match(key)
+        if match:
+            server_name = match.group(1).lower()
+            param_name = match.group(2).lower()
+
+            if server_name not in servers:
+                servers[server_name] = {}
+
+            # Convert boolean strings
+            if value.lower() in ('true', 'false'):
+                value = value.lower() == 'true'
+            # Convert numeric strings
+            elif value.replace('.', '').replace('-', '').isdigit():
+                value = float(value) if '.' in value else int(value)
+
+            servers[server_name][param_name] = value
+
+    settings.mcp_servers = servers
 
 # Enable LangSmith tracing if configured
 if settings.langsmith_api_key and settings.langsmith_tracing:

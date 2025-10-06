@@ -77,9 +77,21 @@ class SupervisorState(BaseAgentState):
     State for the Supervisor agent.
 
     This agent orchestrates the workflow and delegates to other agents.
+    Supports both ReAct mode (autonomous) and Workflow mode (template-based).
     """
-    # Could add fields like:
-    # - task_plan: List of steps to execute
-    # - completed_steps: List of completed subtasks
-    # - next_agent: Which agent to delegate to next
-    pass
+    # Workflow mode fields
+    workflow_template: Optional[str]  # Template name to use
+    workflow_params: Optional[Dict]  # Parameters for template
+    workflow_mode: Optional[str]  # "react", "template", or "auto"
+    workflow_history: Optional[List[Dict]]  # Workflow execution log
+
+    # Workflow state (populated during template execution)
+    workflow_name: Optional[str]
+    current_node: Optional[str]
+    completed_nodes: Optional[List[str]]
+    node_outputs: Optional[Dict[str, str]]
+
+    # Metadata for conditional routing
+    sentiment_score: Optional[float]
+    content_length: Optional[int]
+    custom_metadata: Optional[Dict]

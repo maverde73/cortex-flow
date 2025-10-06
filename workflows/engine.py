@@ -1,0 +1,505 @@
+"""
+Workflow Execution Engine
+
+Executes workflow templates with support for:
+- Parallel node execution
+- Conditional routing
+- Dependency resolution
+- MCP tool integration
+- State management
+"""
+
+import asyncio
+import time
+import logging
+from typing import Dict, List, Optional, Any, Set
+from collections import defaultdict
+
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+
+from schemas.workflow_schemas import (
+    WorkflowTemplate,
+    WorkflowNode,
+    WorkflowState,
+    WorkflowResult,
+    NodeExecutionResult,
+    WorkflowExecutionLog
+)
+from workflows.conditions import ConditionEvaluator, extract_sentiment_score
+from config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class WorkflowEngine:
+    """Executes workflow templates"""
+
+    def __init__(self):
+        self.condition_evaluator = ConditionEvaluator()
+
+    async def execute_workflow(
+        self,
+        template: WorkflowTemplate,
+        user_input: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> WorkflowResult:
+        """
+        Execute a workflow template.
+
+        Args:
+            template: Workflow template to execute
+            user_input: User's input message
+            params: Workflow parameters for variable substitution
+
+        Returns:
+            WorkflowResult with execution details
+        """
+        start_time = time.time()
+        params = params or {}
+
+        # Initialize workflow state
+        state = WorkflowState(
+            workflow_name=template.name,
+            workflow_params=params
+        )
+
+        # Merge template parameters
+        state.workflow_params.update(template.parameters)
+
+        # Build execution DAG
+        execution_plan = self._build_execution_plan(template)
+
+        logger.info(
+            f"🚀 Starting workflow '{template.name}' "
+            f"({len(template.nodes)} nodes)"
+        )
+
+        node_results: List[NodeExecutionResult] = []
+
+        try:
+            # Execute nodes in topological order
+            for step in execution_plan:
+                if step["type"] == "parallel":
+                    # Execute parallel group
+                    results = await self._execute_parallel_nodes(
+                        step["nodes"],
+                        user_input,
+                        state,
+                        params
+                    )
+                    node_results.extend(results)
+
+                    # Update state with results
+                    for result in results:
+                        state.node_outputs[result.node_id] = result.output
+                        state.completed_nodes.append(result.node_id)
+
+                else:
+                    # Execute single node
+                    node = step["node"]
+                    result = await self._execute_node(
+                        node,
+                        user_input,
+                        state,
+                        params
+                    )
+                    node_results.append(result)
+
+                    # Update state
+                    state.node_outputs[node.id] = result.output
+                    state.completed_nodes.append(node.id)
+                    state.current_node = node.id
+
+                    # Extract metadata for conditional routing
+                    self._extract_metadata(result.output, state)
+
+                    # Check for conditional routing
+                    next_node_id = self._evaluate_conditional_routing(
+                        template,
+                        node.id,
+                        state
+                    )
+
+                    if next_node_id and next_node_id != self._get_next_node(execution_plan, node.id):
+                        logger.info(
+                            f"🔀 Conditional routing: {node.id} → {next_node_id}"
+                        )
+                        # Adjust execution plan
+                        execution_plan = self._reroute_execution(
+                            execution_plan,
+                            node.id,
+                            next_node_id
+                        )
+
+            # Get final output (from last completed node)
+            final_output = ""
+            if state.completed_nodes:
+                last_node = state.completed_nodes[-1]
+                final_output = state.node_outputs.get(last_node, "")
+
+            execution_time = time.time() - start_time
+
+            logger.info(
+                f"✅ Workflow '{template.name}' completed in {execution_time:.2f}s"
+            )
+
+            return WorkflowResult(
+                workflow_name=template.name,
+                success=True,
+                final_output=final_output,
+                execution_log=state.workflow_history,
+                node_results=node_results,
+                total_execution_time=execution_time
+            )
+
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(f"❌ Workflow '{template.name}' failed: {e}")
+
+            return WorkflowResult(
+                workflow_name=template.name,
+                success=False,
+                final_output="",
+                execution_log=state.workflow_history,
+                node_results=node_results,
+                total_execution_time=execution_time,
+                error=str(e)
+            )
+
+    async def _execute_node(
+        self,
+        node: WorkflowNode,
+        user_input: str,
+        state: WorkflowState,
+        params: Dict[str, Any]
+    ) -> NodeExecutionResult:
+        """
+        Execute a single workflow node.
+
+        Args:
+            node: Node to execute
+            user_input: Original user input
+            state: Current workflow state
+            params: Workflow parameters
+
+        Returns:
+            NodeExecutionResult
+        """
+        start_time = time.time()
+
+        try:
+            # Substitute variables in instruction
+            instruction = self._substitute_variables(
+                node.instruction,
+                state,
+                params
+            )
+
+            logger.info(f"📍 Executing node '{node.id}' (agent: {node.agent})")
+            logger.debug(f"   Instruction: {instruction}")
+
+            # Log to workflow history
+            state.workflow_history.append(WorkflowExecutionLog(
+                timestamp=time.time(),
+                node_id=node.id,
+                agent=node.agent,
+                action="start_execution",
+                details={"instruction": instruction}
+            ))
+
+            # Execute based on agent type
+            if node.agent == "mcp_tool":
+                output = await self._execute_mcp_tool(node, state, params)
+            else:
+                output = await self._execute_agent(node.agent, instruction, state)
+
+            execution_time = time.time() - start_time
+
+            logger.info(
+                f"   ✓ Node '{node.id}' completed in {execution_time:.2f}s"
+            )
+
+            return NodeExecutionResult(
+                node_id=node.id,
+                agent=node.agent,
+                output=output,
+                execution_time=execution_time,
+                success=True
+            )
+
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(f"   ✗ Node '{node.id}' failed: {e}")
+
+            return NodeExecutionResult(
+                node_id=node.id,
+                agent=node.agent,
+                output="",
+                execution_time=execution_time,
+                success=False,
+                error=str(e)
+            )
+
+    async def _execute_parallel_nodes(
+        self,
+        nodes: List[WorkflowNode],
+        user_input: str,
+        state: WorkflowState,
+        params: Dict[str, Any]
+    ) -> List[NodeExecutionResult]:
+        """Execute multiple nodes in parallel"""
+        logger.info(
+            f"⚡ Executing {len(nodes)} nodes in parallel: "
+            f"{[n.id for n in nodes]}"
+        )
+
+        tasks = [
+            self._execute_node(node, user_input, state, params)
+            for node in nodes
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Handle any exceptions
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Parallel execution error in node {nodes[i].id}: {result}")
+                processed_results.append(NodeExecutionResult(
+                    node_id=nodes[i].id,
+                    agent=nodes[i].agent,
+                    output="",
+                    execution_time=0,
+                    success=False,
+                    error=str(result)
+                ))
+            else:
+                processed_results.append(result)
+
+        return processed_results
+
+    async def _execute_agent(
+        self,
+        agent_name: str,
+        instruction: str,
+        state: WorkflowState
+    ) -> str:
+        """
+        Execute an agent (researcher, analyst, writer).
+
+        Args:
+            agent_name: Agent to execute
+            instruction: Instruction for agent
+            state: Workflow state
+
+        Returns:
+            Agent output
+        """
+        # Import agent tools dynamically
+        if agent_name == "researcher":
+            from tools.proxy_tools import research_web
+            result = await research_web.ainvoke({"query": instruction})
+
+        elif agent_name == "analyst":
+            from tools.proxy_tools import analyze_data
+            result = await analyze_data.ainvoke({"data": instruction})
+
+        elif agent_name == "writer":
+            from tools.proxy_tools import write_content
+            result = await write_content.ainvoke({"content_request": instruction})
+
+        else:
+            raise ValueError(f"Unknown agent: {agent_name}")
+
+        return result
+
+    async def _execute_mcp_tool(
+        self,
+        node: WorkflowNode,
+        state: WorkflowState,
+        params: Dict[str, Any]
+    ) -> str:
+        """
+        Execute an MCP tool.
+
+        Args:
+            node: Node with MCP tool configuration
+            state: Workflow state
+            params: Workflow parameters
+
+        Returns:
+            MCP tool output
+        """
+        if not node.tool_name:
+            raise ValueError(f"MCP tool node '{node.id}' missing tool_name")
+
+        from utils.mcp_client import MCPClient
+
+        client = MCPClient()
+
+        # Substitute variables in params
+        tool_params = {}
+        for key, value in node.params.items():
+            if isinstance(value, str):
+                tool_params[key] = self._substitute_variables(value, state, params)
+            elif isinstance(value, dict):
+                tool_params[key] = {
+                    k: self._substitute_variables(v, state, params) if isinstance(v, str) else v
+                    for k, v in value.items()
+                }
+            else:
+                tool_params[key] = value
+
+        logger.info(f"🔧 Calling MCP tool '{node.tool_name}' with params: {tool_params}")
+
+        result = await client.call_tool(
+            tool_name=node.tool_name,
+            arguments=tool_params
+        )
+
+        return str(result)
+
+    def _substitute_variables(
+        self,
+        text: str,
+        state: WorkflowState,
+        params: Dict[str, Any]
+    ) -> str:
+        """
+        Substitute variables in text.
+
+        Supports:
+        - {param_name} - from params
+        - {node_id.output} - from previous node outputs
+        - {user_input} - original user input
+        """
+        import re
+
+        def replace_var(match):
+            var_name = match.group(1)
+
+            # Check params
+            if var_name in params:
+                return str(params[var_name])
+
+            # Check workflow params
+            if var_name in state.workflow_params:
+                return str(state.workflow_params[var_name])
+
+            # Check node outputs (format: node_id or node_id.output)
+            if "." in var_name:
+                node_id, _ = var_name.split(".", 1)
+            else:
+                node_id = var_name
+
+            if node_id in state.node_outputs:
+                return state.node_outputs[node_id]
+
+            # Return unchanged if not found
+            return match.group(0)
+
+        return re.sub(r'\{([^}]+)\}', replace_var, text)
+
+    def _build_execution_plan(self, template: WorkflowTemplate) -> List[Dict]:
+        """
+        Build execution plan respecting dependencies and parallel groups.
+
+        Returns:
+            List of execution steps (sequential or parallel)
+        """
+        # Group nodes by parallel_group
+        parallel_groups = defaultdict(list)
+        sequential_nodes = []
+
+        for node in template.nodes:
+            if node.parallel_group:
+                parallel_groups[node.parallel_group].append(node)
+            else:
+                sequential_nodes.append(node)
+
+        # Topological sort considering dependencies
+        plan = []
+        executed = set()
+
+        # Add parallel groups
+        for group_name, nodes in parallel_groups.items():
+            # Check if all dependencies met
+            all_deps_met = all(
+                dep in executed or dep in [n.id for n in nodes]
+                for node in nodes
+                for dep in node.depends_on
+            )
+
+            if all_deps_met:
+                plan.append({"type": "parallel", "nodes": nodes})
+                for node in nodes:
+                    executed.add(node.id)
+
+        # Add sequential nodes in dependency order
+        remaining = sequential_nodes.copy()
+        while remaining:
+            added = False
+            for node in remaining[:]:
+                if all(dep in executed for dep in node.depends_on):
+                    plan.append({"type": "sequential", "node": node})
+                    executed.add(node.id)
+                    remaining.remove(node)
+                    added = True
+
+            if not added and remaining:
+                # Circular dependency or unmet deps
+                raise ValueError(
+                    f"Cannot resolve dependencies for nodes: {[n.id for n in remaining]}"
+                )
+
+        return plan
+
+    def _extract_metadata(self, output: str, state: WorkflowState):
+        """Extract metadata from output for conditional routing"""
+        # Extract sentiment score
+        state.sentiment_score = extract_sentiment_score(output)
+
+        # Extract content length
+        state.content_length = len(output)
+
+    def _evaluate_conditional_routing(
+        self,
+        template: WorkflowTemplate,
+        current_node_id: str,
+        state: WorkflowState
+    ) -> Optional[str]:
+        """Evaluate conditional edges for current node"""
+        for edge in template.conditional_edges:
+            if edge.from_node == current_node_id:
+                return self.condition_evaluator.evaluate_edge(edge, state)
+        return None
+
+    def _get_next_node(self, plan: List[Dict], current_node_id: str) -> Optional[str]:
+        """Get next node ID from execution plan"""
+        for i, step in enumerate(plan):
+            if step["type"] == "sequential" and step["node"].id == current_node_id:
+                if i + 1 < len(plan):
+                    next_step = plan[i + 1]
+                    if next_step["type"] == "sequential":
+                        return next_step["node"].id
+        return None
+
+    def _reroute_execution(
+        self,
+        plan: List[Dict],
+        from_node: str,
+        to_node: str
+    ) -> List[Dict]:
+        """Reroute execution plan based on conditional routing"""
+        # Simple implementation: insert target node after current
+        new_plan = []
+        for step in plan:
+            new_plan.append(step)
+            if step["type"] == "sequential" and step["node"].id == from_node:
+                # Find target node and insert
+                for other_step in plan:
+                    if (other_step["type"] == "sequential" and
+                        other_step["node"].id == to_node):
+                        new_plan.append(other_step)
+                        break
+        return new_plan

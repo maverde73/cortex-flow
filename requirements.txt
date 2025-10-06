@@ -1,5 +1,5 @@
 # Core Framework
-langchain-mcp-adapters
+langchain-mcp-adapters  # MCP adapters for LangChain
 langgraph
 langchain-openai
 langchain-anthropic

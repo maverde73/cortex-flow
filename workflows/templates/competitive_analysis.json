@@ -1,0 +1,50 @@
+{
+  "name": "competitive_analysis",
+  "version": "1.0",
+  "description": "Competitive analysis with parallel research: Research A || Research B → Compare → Report",
+  "trigger_patterns": [
+    "compare .* with .*",
+    "compare .* and .*",
+    "competitive analysis",
+    ".* vs .*",
+    ".* versus .*"
+  ],
+  "nodes": [
+    {
+      "id": "research_a",
+      "agent": "researcher",
+      "instruction": "Research detailed information about {competitor_a}",
+      "depends_on": [],
+      "parallel_group": "research",
+      "timeout": 300
+    },
+    {
+      "id": "research_b",
+      "agent": "researcher",
+      "instruction": "Research detailed information about {competitor_b}",
+      "depends_on": [],
+      "parallel_group": "research",
+      "timeout": 300
+    },
+    {
+      "id": "compare",
+      "agent": "analyst",
+      "instruction": "Compare and analyze these two competitors:\n\nCompetitor A ({competitor_a}):\n{research_a}\n\nCompetitor B ({competitor_b}):\n{research_b}",
+      "depends_on": ["research_a", "research_b"],
+      "timeout": 180
+    },
+    {
+      "id": "report",
+      "agent": "writer",
+      "instruction": "Create a competitive analysis report based on this comparison:\n\n{compare}",
+      "depends_on": ["compare"],
+      "timeout": 180,
+      "template": "competitive_report"
+    }
+  ],
+  "conditional_edges": [],
+  "parameters": {
+    "competitor_a": "LangGraph",
+    "competitor_b": "CrewAI"
+  }
+}

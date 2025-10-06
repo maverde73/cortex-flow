@@ -1,0 +1,32 @@
+{
+  "name": "seo_optimizer",
+  "version": "1.0",
+  "description": "Analyze and optimize content for SEO. Params: {topic, current_content}",
+  "trigger_patterns": [
+    ".*seo.*optimi[zs].*",
+    ".*improve.*ranking.*",
+    ".*search.*engine.*"
+  ],
+
+  "nodes": [
+    {
+      "id": "research_keywords",
+      "agent": "researcher",
+      "instruction": "Research top SEO keywords and search intent for: {topic}\n\nFind:\n- Primary keywords (volume, difficulty)\n- Long-tail variations\n- Related questions\n- Competitor gaps",
+      "timeout": 300
+    },
+    {
+      "id": "analyze_content",
+      "agent": "analyst",
+      "instruction": "Analyze current content for SEO:\n\nContent:\n{current_content}\n\nKeywords:\n{research_keywords}\n\nProvide:\n- Keyword density\n- Missing keywords\n- Readability score\n- Structure issues\n- Meta optimization",
+      "depends_on": ["research_keywords"]
+    },
+    {
+      "id": "optimize_content",
+      "agent": "writer",
+      "instruction": "Rewrite content applying SEO recommendations:\n\nOriginal:\n{current_content}\n\nOptimizations:\n{analyze_content}\n\nMaintain:\n- Original tone\n- Factual accuracy\n- Natural flow\n\nAdd:\n- Optimized title (H1)\n- Meta description (155 chars)\n- H2/H3 structure\n- Internal linking suggestions",
+      "depends_on": ["analyze_content"],
+      "timeout": 240
+    }
+  ]
+}

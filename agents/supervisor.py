@@ -168,9 +168,19 @@ async def create_supervisor_agent_dynamic():
             if settings.react_log_actions and settings.react_enable_verbose_logging:
                 tool_calls = last_message.tool_calls
                 for tc in tool_calls:
-                    logger.info(
-                        f"[Supervisor ReAct Iteration {iteration_count}] Delegating to: {tc.get('name', 'unknown')}"
+                    tool_name = tc.get('name', 'unknown')
+                    # Check if this is an MCP tool
+                    is_mcp_tool = not any(
+                        agent_tool in tool_name
+                        for agent_tool in ['research_web', 'analyze_data', 'write_content']
                     )
+                    tool_type = "MCP Tool" if is_mcp_tool and settings.mcp_enable else "Agent Tool"
+
+                    if settings.mcp_tools_enable_logging or not is_mcp_tool:
+                        logger.info(
+                            f"[Supervisor ReAct Iteration {iteration_count}] "
+                            f"Delegating to {tool_type}: {tool_name}"
+                        )
             return "tools"
 
         # No tool calls and no stop conditions = final answer reached
