@@ -362,12 +362,25 @@ When implementing features:
 5. Add tests for new functionality
 6. Update this checklist as items are completed
 
-## References
+## Documentation
 
-- [MCP Protocol Specification](docs/Guida%20Agenti%20ReAct%20Multi-MCP%20LangChain.md)
-- [Architecture Blueprint](docs/Architettura%20Backend%20per%20Agenti%20Configurabili.md)
+📚 **Complete documentation is available in the [`docs/`](docs/) directory**
+
+### Quick Links
+
+- **[Getting Started](docs/getting-started/README.md)** - Setup and first workflow
+- **[Architecture Overview](docs/architecture/README.md)** - System design and patterns
+- **[Agents Guide](docs/agents/README.md)** - ReAct agents and strategies
+- **[MCP Integration](docs/mcp/README.md)** - External tool integration
+- **[Workflows](docs/workflows/README.md)** - Template-based execution
+- **[Development Guide](docs/development/README.md)** - Contributing and testing
+- **[Configuration Reference](docs/reference/README.md)** - All settings and APIs
+
+### External Resources
+
 - [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Model Context Protocol](https://spec.modelcontextprotocol.io/)
 
 ## License
 
