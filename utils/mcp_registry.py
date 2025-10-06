@@ -78,6 +78,10 @@ class MCPServerConfig:
     timeout: float = 30.0
     health_check_interval: int = 60
 
+    # Manual prompts configuration
+    prompts_file: Optional[str] = None  # Path to markdown file with prompts
+    prompt_tool_association: Optional[str] = None  # Tool name to associate with the prompt
+
     # Metadata
     status: str = "unknown"  # unknown, healthy, unhealthy, disabled
     last_check: Optional[datetime] = None
@@ -102,6 +106,33 @@ class MCPServerConfig:
 
 
 @dataclass
+class MCPPromptArgument:
+    """
+    Argument specification for an MCP prompt.
+    """
+    name: str
+    description: str
+    required: bool = True
+
+
+@dataclass
+class MCPPrompt:
+    """
+    MCP prompt metadata.
+
+    Represents a prompt template exposed by an MCP server.
+    Prompts provide guidance on how to use MCP tools effectively.
+    """
+    name: str
+    description: str
+    arguments: List[MCPPromptArgument]
+    server_name: str  # Which MCP server provides this prompt
+
+    # Optional metadata
+    content: Optional[str] = None  # Full prompt text/template
+
+
+@dataclass
 class MCPTool:
     """
     MCP tool metadata.
@@ -116,6 +147,7 @@ class MCPTool:
     # Optional metadata
     examples: List[str] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)
+    associated_prompt: Optional[str] = None  # Name of associated MCP prompt
 
 
 class MCPToolRegistry:
@@ -135,6 +167,7 @@ class MCPToolRegistry:
         """
         self._servers: Dict[str, MCPServerConfig] = {}
         self._tools: Dict[str, MCPTool] = {}  # tool_name -> MCPTool
+        self._prompts: Dict[str, MCPPrompt] = {}  # prompt_name -> MCPPrompt
         self._health_check_timeout = health_check_timeout
         self._lock = asyncio.Lock()
 
@@ -169,6 +202,7 @@ class MCPToolRegistry:
             if is_healthy:
                 config.status = "healthy"
                 await self._discover_tools(config)
+                await self._discover_prompts(config)  # Discover prompts after tools
                 logger.info(
                     f"✅ MCP server '{config.name}' registered successfully "
                     f"with {config.tool_count} tools"
@@ -181,7 +215,7 @@ class MCPToolRegistry:
             return is_healthy
 
     async def unregister_server(self, server_name: str):
-        """Remove an MCP server and its tools."""
+        """Remove an MCP server and its tools/prompts."""
         async with self._lock:
             if server_name in self._servers:
                 # Remove all tools from this server
@@ -193,10 +227,19 @@ class MCPToolRegistry:
                 for tool_name in tools_to_remove:
                     del self._tools[tool_name]
 
+                # Remove all prompts from this server
+                prompts_to_remove = [
+                    prompt_name for prompt_name, prompt in self._prompts.items()
+                    if prompt.server_name == server_name
+                ]
+
+                for prompt_name in prompts_to_remove:
+                    del self._prompts[prompt_name]
+
                 del self._servers[server_name]
                 logger.info(
                     f"Unregistered MCP server '{server_name}' "
-                    f"and {len(tools_to_remove)} tools"
+                    f"({len(tools_to_remove)} tools, {len(prompts_to_remove)} prompts)"
                 )
 
     async def get_available_tools(self) -> List[MCPTool]:
@@ -217,6 +260,25 @@ class MCPToolRegistry:
         """Get a specific tool by name."""
         async with self._lock:
             return self._tools.get(tool_name)
+
+    async def get_prompt(self, prompt_name: str) -> Optional[MCPPrompt]:
+        """Get a specific prompt by name."""
+        async with self._lock:
+            return self._prompts.get(prompt_name)
+
+    async def get_available_prompts(self) -> List[MCPPrompt]:
+        """
+        Get all prompts from healthy MCP servers.
+
+        Returns:
+            List of available MCP prompts
+        """
+        async with self._lock:
+            return [
+                prompt for prompt in self._prompts.values()
+                if prompt.server_name in self._servers
+                and self._servers[prompt.server_name].status == "healthy"
+            ]
 
     async def get_server_config(self, server_name: str) -> Optional[MCPServerConfig]:
         """Get configuration for a specific server."""
@@ -606,6 +668,291 @@ class MCPToolRegistry:
 
         return tools
 
+    async def _discover_prompts(self, server: MCPServerConfig):
+        """
+        Discover prompts from an MCP server.
+
+        This method queries the MCP server for available prompts and registers them.
+        If server.prompts_file is specified, loads prompts from that file instead.
+        NOTE: This method expects to be called while holding self._lock
+        """
+        try:
+            prompts = []
+
+            # Check if manual prompts file is specified
+            if server.prompts_file:
+                prompts = await self._load_prompts_from_file(server)
+            elif server.server_type == MCPServerType.REMOTE:
+                prompts = await self._discover_remote_prompts(server)
+            else:
+                prompts = await self._discover_local_prompts(server)
+
+            # Register discovered prompts (lock is already held by caller)
+            for prompt in prompts:
+                prompt.server_name = server.name
+                self._prompts[prompt.name] = prompt
+
+                # Associate with tool if specified
+                if server.prompt_tool_association:
+                    tool = self._tools.get(server.prompt_tool_association)
+                    if tool:
+                        tool.associated_prompt = prompt.name
+                        logger.info(
+                            f"Associated prompt '{prompt.name}' with tool '{tool.name}'"
+                        )
+
+            if len(prompts) > 0:
+                logger.info(
+                    f"Discovered {len(prompts)} prompts from MCP server '{server.name}'"
+                )
+
+        except Exception as e:
+            logger.error(f"Error discovering prompts from '{server.name}': {e}")
+
+    async def _discover_remote_prompts(self, server: MCPServerConfig) -> List[MCPPrompt]:
+        """Discover prompts from remote MCP server via HTTP."""
+        prompts = []
+
+        try:
+            headers = server.headers.copy()
+
+            # Streamable HTTP requires specific Accept header
+            if server.transport == MCPTransportType.STREAMABLE_HTTP:
+                headers["Accept"] = "application/json, text/event-stream"
+
+            if server.api_key:
+                headers["Authorization"] = f"Bearer {server.api_key}"
+
+            async with httpx.AsyncClient(timeout=server.timeout) as client:
+                # For Streamable HTTP, first initialize the MCP session
+                session_id = None
+                if server.transport == MCPTransportType.STREAMABLE_HTTP:
+                    # Send initialize request first (required by MCP protocol)
+                    init_payload = {
+                        "jsonrpc": "2.0",
+                        "id": 0,
+                        "method": "initialize",
+                        "params": {
+                            "protocolVersion": "2025-03-26",
+                            "capabilities": {},
+                            "clientInfo": {
+                                "name": "cortex-flow-supervisor",
+                                "version": "1.0"
+                            }
+                        }
+                    }
+
+                    init_response = await client.post(
+                        server.url,
+                        json=init_payload,
+                        headers=headers
+                    )
+
+                    if "mcp-session-id" in init_response.headers:
+                        session_id = init_response.headers["mcp-session-id"]
+                        headers["mcp-session-id"] = session_id
+                        logger.debug(f"Initialized MCP session for prompts/list '{server.name}': {session_id}")
+
+                        # Send initialized notification (required by MCP protocol after initialize)
+                        await client.post(
+                            server.url,
+                            json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+                            headers=headers
+                        )
+
+                # MCP protocol: send prompts/list request
+                request_payload = {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "prompts/list"
+                }
+
+                response = await client.post(
+                    server.url,
+                    json=request_payload,
+                    headers=headers
+                )
+
+                if response.status_code == 200:
+                    logger.info(f"✅ MCP server '{server.name}' responded 200 OK to prompts/list")
+
+                    # Parse response (could be SSE or JSON)
+                    content_type = response.headers.get("content-type", "")
+                    logger.debug(f"Response content-type: {content_type}")
+
+                    try:
+                        if "text/event-stream" in content_type:
+                            # Parse SSE format
+                            import json as json_module
+                            text = response.text
+                            data = None
+                            for line in text.split('\n'):
+                                if line.startswith('data: '):
+                                    json_str = line[6:]
+                                    data = json_module.loads(json_str)
+                                    break
+
+                            if data is None:
+                                logger.debug("No prompts/list data in SSE response")
+                                data = {}
+                        else:
+                            data = response.json()
+
+                    except Exception as e:
+                        logger.error(f"Error parsing prompts/list response: {e}")
+                        data = {}
+
+                    # Parse MCP prompts/list response
+                    logger.debug(f"Parsed data keys: {list(data.keys())}")
+                    if "result" in data:
+                        logger.debug(f"Result keys: {list(data['result'].keys())}")
+
+                    if "result" in data and "prompts" in data["result"]:
+                        prompts_list = data["result"]["prompts"]
+                        logger.info(f"📋 Found {len(prompts_list)} prompts from '{server.name}'")
+
+                        for prompt_data in prompts_list:
+                            # Parse arguments
+                            arguments = []
+                            for arg_data in prompt_data.get("arguments", []):
+                                arg = MCPPromptArgument(
+                                    name=arg_data.get("name", ""),
+                                    description=arg_data.get("description", ""),
+                                    required=arg_data.get("required", True)
+                                )
+                                arguments.append(arg)
+
+                            prompt = MCPPrompt(
+                                name=prompt_data.get("name", ""),
+                                description=prompt_data.get("description", ""),
+                                arguments=arguments,
+                                server_name=server.name
+                            )
+                            prompts.append(prompt)
+                            logger.debug(f"  - {prompt.name}: {prompt.description[:80]}")
+                    else:
+                        logger.debug(f"No prompts available from '{server.name}'")
+                else:
+                    logger.debug(
+                        f"MCP server '{server.name}' returned {response.status_code} for prompts/list"
+                    )
+
+        except Exception as e:
+            logger.debug(f"Error discovering remote prompts from '{server.name}': {e}")
+
+        return prompts
+
+    async def _discover_local_prompts(self, server: MCPServerConfig) -> List[MCPPrompt]:
+        """Discover prompts from local MCP server module."""
+        prompts = []
+
+        try:
+            module = await self._load_local_module(server)
+
+            if module is None:
+                return prompts
+
+            # Try to get FastMCP instance
+            mcp_instance = None
+            if hasattr(module, 'mcp'):
+                mcp_instance = module.mcp
+            elif hasattr(module, 'app'):
+                mcp_instance = module.app
+
+            if mcp_instance is None:
+                return prompts
+
+            # Extract prompts from FastMCP instance
+            if hasattr(mcp_instance, '_prompts'):
+                for prompt_name, prompt_obj in mcp_instance._prompts.items():
+                    # Extract prompt metadata
+                    prompt = MCPPrompt(
+                        name=prompt_name,
+                        description=getattr(prompt_obj, 'description', ''),
+                        arguments=[],  # Local prompts may not have argument metadata
+                        server_name=server.name
+                    )
+                    prompts.append(prompt)
+            elif hasattr(mcp_instance, 'list_prompts'):
+                # Alternative: use list_prompts method if available
+                prompt_list = mcp_instance.list_prompts()
+                for prompt_data in prompt_list:
+                    arguments = []
+                    for arg_data in prompt_data.get("arguments", []):
+                        arg = MCPPromptArgument(
+                            name=arg_data.get("name", ""),
+                            description=arg_data.get("description", ""),
+                            required=arg_data.get("required", True)
+                        )
+                        arguments.append(arg)
+
+                    prompt = MCPPrompt(
+                        name=prompt_data.get("name", ""),
+                        description=prompt_data.get("description", ""),
+                        arguments=arguments,
+                        server_name=server.name
+                    )
+                    prompts.append(prompt)
+
+        except Exception as e:
+            logger.debug(f"Error discovering local prompts from '{server.name}': {e}")
+
+        return prompts
+
+    async def _load_prompts_from_file(self, server: MCPServerConfig) -> List[MCPPrompt]:
+        """
+        Load prompts from a file (markdown, text, etc.).
+
+        This allows manually configuring prompts for MCP servers that don't expose
+        prompts via prompts/list.
+
+        Args:
+            server: Server configuration with prompts_file set
+
+        Returns:
+            List of MCPPrompt objects loaded from file
+        """
+        prompts = []
+
+        try:
+            if not server.prompts_file:
+                return prompts
+
+            prompt_file = Path(server.prompts_file)
+
+            if not prompt_file.exists():
+                logger.warning(
+                    f"Prompts file not found for server '{server.name}': {server.prompts_file}"
+                )
+                return prompts
+
+            # Read file content
+            with open(prompt_file, 'r', encoding='utf-8') as f:
+                prompt_content = f.read()
+
+            # Create a single prompt from file content
+            # Use filename (without extension) as prompt name
+            prompt_name = prompt_file.stem
+
+            prompt = MCPPrompt(
+                name=prompt_name,
+                description=prompt_content,
+                arguments=[],  # No arguments for manual prompts
+                server_name=server.name
+            )
+
+            prompts.append(prompt)
+
+            logger.info(
+                f"📄 Loaded prompt '{prompt_name}' from file for server '{server.name}' "
+                f"({len(prompt_content)} chars)"
+            )
+
+        except Exception as e:
+            logger.error(f"Error loading prompts from file for '{server.name}': {e}")
+
+        return prompts
+
 
 # Global MCP tool registry instance
 _global_mcp_registry: Optional[MCPToolRegistry] = None
@@ -644,7 +991,9 @@ async def initialize_mcp_registry_from_config():
                 api_key=server_config.get('api_key'),
                 local_path=server_config.get('local_path'),
                 enabled=server_config.get('enabled', True),
-                timeout=server_config.get('timeout', 30.0)
+                timeout=server_config.get('timeout', 30.0),
+                prompts_file=server_config.get('prompts_file'),
+                prompt_tool_association=server_config.get('prompt_tool_association')
             )
 
             await registry.register_server(config)

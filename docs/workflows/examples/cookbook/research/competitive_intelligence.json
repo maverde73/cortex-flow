@@ -1,0 +1,60 @@
+{
+  "name": "competitive_intelligence",
+  "version": "1.0",
+  "description": "Comprehensive competitor analysis with SWOT. Params: {company_name, competitors[]}",
+  "trigger_patterns": [
+    ".*competitive.*intelligence.*",
+    ".*competitor.*analysis.*",
+    ".*market.*position.*"
+  ],
+
+  "nodes": [
+    {
+      "id": "research_target",
+      "agent": "researcher",
+      "instruction": "Research comprehensive information about {company_name}:\n- Business model\n- Products/services\n- Market position\n- Recent news\n- Financial performance\n- Key strengths",
+      "timeout": 300,
+      "parallel_group": "research"
+    },
+    {
+      "id": "research_competitor1",
+      "agent": "researcher",
+      "instruction": "Research comprehensive information about {competitor1}:\n- Business model\n- Products/services\n- Market position\n- Recent news\n- Financial performance\n- Key strengths",
+      "timeout": 300,
+      "parallel_group": "research"
+    },
+    {
+      "id": "research_competitor2",
+      "agent": "researcher",
+      "instruction": "Research comprehensive information about {competitor2}:\n- Business model\n- Products/services\n- Market position\n- Recent news\n- Financial performance\n- Key strengths",
+      "timeout": 300,
+      "parallel_group": "research"
+    },
+    {
+      "id": "analyze_comparison",
+      "agent": "analyst",
+      "instruction": "Analyze competitive landscape:\n\nTarget Company:\n{research_target}\n\nCompetitor 1:\n{research_competitor1}\n\nCompetitor 2:\n{research_competitor2}\n\nProvide:\n1. Market positioning comparison\n2. Product/service differentiation\n3. Pricing strategy comparison\n4. Target audience overlap\n5. Competitive advantages/disadvantages",
+      "depends_on": ["research_target", "research_competitor1", "research_competitor2"],
+      "timeout": 180
+    },
+    {
+      "id": "swot_analysis",
+      "agent": "analyst",
+      "instruction": "Create detailed SWOT analysis for {company_name} based on competitive research:\n\n{analyze_comparison}\n\nFormat:\n**Strengths:**\n- [List 5-7 key strengths]\n\n**Weaknesses:**\n- [List 5-7 key weaknesses]\n\n**Opportunities:**\n- [List 5-7 market opportunities]\n\n**Threats:**\n- [List 5-7 competitive threats]",
+      "depends_on": ["analyze_comparison"]
+    },
+    {
+      "id": "strategic_recommendations",
+      "agent": "analyst",
+      "instruction": "Based on SWOT analysis:\n{swot_analysis}\n\nProvide 5-7 strategic recommendations for {company_name} to improve competitive position. Prioritize by impact and feasibility.",
+      "depends_on": ["swot_analysis"]
+    },
+    {
+      "id": "final_report",
+      "agent": "writer",
+      "instruction": "Create executive competitive intelligence report:\n\n## Competitive Analysis: {company_name}\n\n### Market Landscape\n{analyze_comparison}\n\n### SWOT Analysis\n{swot_analysis}\n\n### Strategic Recommendations\n{strategic_recommendations}\n\nFormat: Professional business report with executive summary.",
+      "depends_on": ["strategic_recommendations"],
+      "timeout": 240
+    }
+  ]
+}

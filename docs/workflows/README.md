@@ -47,6 +47,49 @@ Integra database, API e tool esterni nei workflow.
 
 ---
 
+### 4. [Visual Diagrams](04_visual_diagrams.md) 🆕
+Comprendi l'architettura e i flussi con diagrammi Mermaid.
+
+**Contenuti**:
+- Architettura dual-mode supervisor
+- Routing logic e decision flow
+- Sequential, parallel, conditional workflows
+- MCP integration flow
+- State management lifecycle
+- Performance comparison visualizations
+
+**Per chi**: Comprensione visuale del sistema
+
+---
+
+### 5. [Cookbook](05_cookbook.md) 🆕
+16 esempi pratici pronti all'uso.
+
+**Contenuti**:
+- **Research & Analysis**: Competitive intelligence, market trends, feedback analysis, SWOT
+- **Content Creation**: Multi-format blog repurposing, product descriptions, email campaigns, documentation
+- **Data Processing**: Database reports, CSV analysis, multi-source aggregation, ETL pipelines
+- **Quality & Validation**: QA loops, fact-checking, translation review, A/B test analysis
+
+**Per chi**: Implementazione rapida di workflow comuni
+
+---
+
+### 6. [Migration Guide](06_migration_guide.md) 🆕
+Strategia per migrare da ReAct a Workflow (focus hybrid).
+
+**Contenuti**:
+- **4 modalità ibride**: Full hybrid, selective, progressive, A/B testing
+- Identificare candidati per migrazione (scoring system)
+- Migrazione graduale (4 phases)
+- Coesistenza ReAct + Workflow best practices
+- Case studies con ROI
+- Testing e troubleshooting
+
+**Per chi**: Team che vogliono adottare workflow gradualmente
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Configura il sistema
@@ -127,7 +170,7 @@ else:
 
 ## 📁 Esempi Template
 
-Nella directory [`examples/`](examples/):
+### Template Base (`examples/`)
 
 | Template | Descrizione | Features |
 |----------|-------------|----------|
@@ -135,7 +178,7 @@ Nella directory [`examples/`](examples/):
 | [`content_repurposing.json`](examples/content_repurposing.json) | Blog → Social media multi-platform | Parallel execution |
 | [`seo_optimizer.json`](examples/seo_optimizer.json) | SEO content optimization | Research + analysis + rewrite |
 
-Workflow esistenti in `workflows/templates/`:
+### Workflow Esistenti (`workflows/templates/`)
 
 | Template | Descrizione | Features |
 |----------|-------------|----------|
@@ -144,6 +187,25 @@ Workflow esistenti in `workflows/templates/`:
 | `data_analysis_report.json` | DB query → Analysis → Report | **MCP integration** |
 | `multi_source_research.json` | Web + DB parallel → Synthesize | **MCP + parallel** |
 | `sentiment_routing.json` | Sentiment analysis → Route | **Conditional routing** |
+
+### Cookbook Templates 🆕 ([`examples/cookbook/`](examples/cookbook/))
+
+Production-ready templates organizzati per categoria. [Vedi Cookbook completo →](05_cookbook.md)
+
+**Research & Analysis** (`research/`):
+- `competitive_intelligence.json` - Multi-source competitor analysis con SWOT
+- `market_trend_analysis.json` - Trend detection e forecasting
+
+**Content Creation** (`content/`):
+- `blog_multi_format.json` - Blog → Twitter/LinkedIn/Instagram/YouTube/Newsletter (parallel)
+
+**Data Processing** (`data/`):
+- `database_report_automation.json` - Automated DB reports con MCP integration
+
+**Quality & Validation** (`quality/`):
+- `content_qa_loop.json` - Iterative content improvement con quality gates
+
+[**→ Vedi tutti i template cookbook**](examples/cookbook/)
 
 ---
 
@@ -426,10 +488,24 @@ cortex-flow/
         ├── 01_creating_templates.md
         ├── 02_conditional_routing.md
         ├── 03_mcp_integration.md
+        ├── 04_visual_diagrams.md       # 🆕 Mermaid diagrams
+        ├── 05_cookbook.md              # 🆕 16 practical examples
+        ├── 06_migration_guide.md       # 🆕 Hybrid migration strategies
         └── examples/
             ├── newsletter_workflow.json
             ├── content_repurposing.json
-            └── seo_optimizer.json
+            ├── seo_optimizer.json
+            └── cookbook/               # 🆕 Production templates
+                ├── README.md
+                ├── research/
+                │   ├── competitive_intelligence.json
+                │   └── market_trend_analysis.json
+                ├── content/
+                │   └── blog_multi_format.json
+                ├── data/
+                │   └── database_report_automation.json
+                └── quality/
+                    └── content_qa_loop.json
 ```
 
 ### API Reference
@@ -507,10 +583,50 @@ Vuoi contribuire nuovi template o miglioramenti?
 
 ## 📚 Risorse
 
-- **Codebase**: `workflows/`, `schemas/workflow_schemas.py`
+### Documentazione
+- [Creating Templates →](01_creating_templates.md) - Guida completa creazione workflow
+- [Conditional Routing →](02_conditional_routing.md) - Logica decisionale avanzata
+- [MCP Integration →](03_mcp_integration.md) - Integrazione database e API
+- [Visual Diagrams →](04_visual_diagrams.md) - 🆕 Diagrammi Mermaid architettura
+- [Cookbook →](05_cookbook.md) - 🆕 16 esempi pratici pronti all'uso
+- [Migration Guide →](06_migration_guide.md) - 🆕 Strategia migrazione ibrida
+
+### Codebase
+- **Core**: `workflows/` (engine, registry, conditions)
+- **Schemas**: `schemas/workflow_schemas.py`
+- **Supervisor**: `agents/workflow_supervisor.py` (dual-mode)
 - **Tests**: `tests/test_workflows.py`, `tests/test_workflow_mcp.py`
-- **Esempi**: `workflows/templates/`, `docs/workflows/examples/`
-- **Config**: `.env.example` (workflow section)
+
+### Template
+- **Base**: `workflows/templates/` (5 templates)
+- **Examples**: `docs/workflows/examples/` (3 templates)
+- **Cookbook**: `docs/workflows/examples/cookbook/` (5 production templates) 🆕
+
+### Configuration
+- `.env.example` (workflow section)
+- Default templates dir: `workflows/templates/`
+
+---
+
+## 🎯 Decision Tree: ReAct vs Workflow
+
+```
+User Request
+    ↓
+    Q1: Task è ripetitivo? (>50/mese)
+    ├─ No → 🔄 ReAct Mode
+    └─ Yes →
+        ↓
+        Q2: Workflow template esiste?
+        ├─ Yes → 📋 Workflow Mode (Explicit)
+        └─ No →
+            ↓
+            Q3: Vale la pena creare template? (ROI > 0)
+            ├─ Yes → 📝 Crea Template + Usa Workflow
+            └─ No → 🔄 ReAct Mode
+
+Recommendation: Usa HYBRID mode per best of both worlds
+```
 
 ---
 

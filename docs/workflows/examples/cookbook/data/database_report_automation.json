@@ -1,0 +1,75 @@
+{
+  "name": "database_report_automation",
+  "version": "1.0",
+  "description": "Automated database reporting with trend analysis. Params: {report_type, table_name, time_period}",
+  "trigger_patterns": [
+    ".*database.*report.*",
+    ".*automated.*report.*",
+    ".*data.*report.*"
+  ],
+
+  "nodes": [
+    {
+      "id": "query_current_data",
+      "agent": "mcp_tool",
+      "tool_name": "query_database",
+      "instruction": "Query current period data from {table_name}",
+      "timeout": 60,
+      "params": {
+        "query_payload": {
+          "table": "{table_name}",
+          "method": "select",
+          "columns": ["*"],
+          "filters": {
+            "created_at": ">{start_date}"
+          },
+          "limit": 10000
+        }
+      }
+    },
+    {
+      "id": "query_previous_data",
+      "agent": "mcp_tool",
+      "tool_name": "query_database",
+      "instruction": "Query previous period data from {table_name} for comparison",
+      "timeout": 60,
+      "params": {
+        "query_payload": {
+          "table": "{table_name}",
+          "method": "select",
+          "columns": ["*"],
+          "filters": {
+            "created_at": "BETWEEN {previous_start} AND {previous_end}"
+          },
+          "limit": 10000
+        }
+      }
+    },
+    {
+      "id": "analyze_metrics",
+      "agent": "analyst",
+      "instruction": "Analyze {report_type} metrics:\n\nCurrent Period Data:\n{query_current_data}\n\nPrevious Period Data:\n{query_previous_data}\n\nCalculate:\n1. Key metrics (totals, averages, medians)\n2. Period-over-period changes (%)\n3. Trend direction (up/down/stable)\n4. Outliers and anomalies\n5. Top/bottom performers\n\nProvide statistical summary with confidence levels.",
+      "depends_on": ["query_current_data", "query_previous_data"],
+      "timeout": 180
+    },
+    {
+      "id": "identify_insights",
+      "agent": "analyst",
+      "instruction": "Extract actionable insights from metrics:\n{analyze_metrics}\n\nIdentify:\n1. Significant changes (>10% variance)\n2. Emerging patterns\n3. Risk factors\n4. Opportunities\n5. Recommendations for stakeholders\n\nPrioritize by business impact.",
+      "depends_on": ["analyze_metrics"]
+    },
+    {
+      "id": "create_visualizations",
+      "agent": "analyst",
+      "instruction": "Design data visualizations for report:\n{analyze_metrics}\n\nFor each key metric specify:\n- Chart type (bar, line, pie, etc.)\n- Data series\n- Axes labels\n- Color coding\n- Annotations for notable points\n\nProvide 5-7 visualization specifications.",
+      "depends_on": ["analyze_metrics"]
+    },
+    {
+      "id": "generate_report",
+      "agent": "writer",
+      "instruction": "Create automated {report_type} report for {time_period}:\n\n## Executive Summary\n[3-4 key findings from {identify_insights}]\n\n## Metrics Overview\n{analyze_metrics}\n\n## Visualizations\n{create_visualizations}\n\n## Key Insights\n{identify_insights}\n\n## Trend Analysis\n[Period-over-period comparison]\n\n## Recommendations\n[Top 3-5 action items]\n\n## Data Quality Notes\n[Any caveats or limitations]\n\nFormat: Professional business report with tables and chart descriptions.",
+      "depends_on": ["identify_insights", "create_visualizations"],
+      "timeout": 240
+    }
+  ]
+}

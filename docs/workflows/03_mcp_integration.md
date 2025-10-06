@@ -4,6 +4,7 @@
 
 - [Prerequisiti](#prerequisiti)
 - [Anatomia MCP Node](#anatomia-mcp-node)
+- [MCP Prompts](#mcp-prompts)
 - [Esempi Pratici](#esempi-pratici)
 - [Parametri Avanzati](#parametri-mcp-avanzati)
 - [Error Handling](#error-handling-mcp-tools)
@@ -135,6 +136,480 @@ result = await client.call_tool(
 
 # 3. Salva output
 state.node_outputs["fetch_weather"] = result
+```
+
+---
+
+## MCP Prompts
+
+### Panoramica
+
+Gli **MCP Prompts** sono istruzioni fornite dai server MCP che guidano gli agenti LLM sull'utilizzo corretto dei tool. Il protocollo MCP supporta l'endpoint `prompts/list` che restituisce una lista di prompt associati ai tool.
+
+**Benefici**:
+- ✅ **Migliore accuratezza**: Gli agenti ReAct ricevono istruzioni precise su come usare i tool
+- ✅ **Meno errori**: Riduce chiamate malformate o parametri mancanti
+- ✅ **Auto-documentazione**: I workflow si auto-documentano con le istruzioni del server
+- ✅ **Manutenzione centralizzata**: Le istruzioni sono gestite dal server MCP, non duplicate nei template
+
+### Architettura MCP Prompts
+
+Il sistema implementa 3 livelli di integrazione:
+
+#### Livello 1: Prompt Discovery (Registry)
+
+Il `MCPRegistry` scopre automaticamente i prompts durante la registrazione del server:
+
+```python
+from utils.mcp_registry import get_mcp_registry
+
+registry = get_mcp_registry()
+
+# Registrazione server → Automatic prompt discovery
+await registry.register_server(server_config)
+
+# Recupera un prompt specifico
+prompt = await registry.get_prompt("database_query_guide")
+
+# Lista tutti i prompts disponibili
+prompts = await registry.get_available_prompts()
+for p in prompts:
+    print(f"- {p.name}: {p.description}")
+```
+
+**Struttura MCPPrompt**:
+```python
+@dataclass
+class MCPPrompt:
+    name: str                                    # Nome prompt
+    description: str                             # Istruzioni testuali
+    arguments: List[MCPPromptArgument]           # Parametri richiesti
+    server_name: str                             # Server di provenienza
+    content: Optional[str] = None                # Contenuto esteso (opzionale)
+```
+
+#### Livello 2: Prompt Injection (LangChain Tools)
+
+I tool LangChain vengono automaticamente arricchiti con i prompt MCP:
+
+```python
+from utils.mcp_client import get_mcp_langchain_tools
+
+# Crea LangChain tools con prompt injection
+tools = await get_mcp_langchain_tools()
+
+for tool in tools:
+    print(f"Tool: {tool.name}")
+    print(f"Description: {tool.description}")
+    # Description include MCP prompt se disponibile:
+    # "Query corporate database using SQL
+    #
+    # ## Usage Guide
+    # [MCP Prompt instructions here...]"
+```
+
+**Come funziona**:
+1. `get_mcp_langchain_tools()` recupera tutti i tool MCP disponibili
+2. Per ogni tool, cerca un prompt associato (via `associated_prompt` o nome uguale)
+3. Se trovato, aggiunge il prompt alla `description` del tool
+4. Gli agenti ReAct vedono le istruzioni estese quando selezionano il tool
+
+**Vantaggi per ReAct**:
+- Il supervisor ReAct riceve guidance esplicita nella descrizione del tool
+- Migliora tool selection durante il reasoning step
+- Riduce tentativi ed errori nell'utilizzo dei tool
+
+#### Livello 3: Auto-Population (Workflow Templates)
+
+I workflow possono auto-popolare le istruzioni dei nodi MCP:
+
+```json
+{
+  "id": "query_corporate_db",
+  "agent": "mcp_tool",
+  "tool_name": "query_database",
+  "use_mcp_prompt": true,          // ← Abilita auto-population
+  "instruction": "Query sales data", // ← Verrà arricchita con MCP prompt
+
+  "params": {
+    "query_payload": {
+      "database": "sales_db",
+      "table": "transactions",
+      "method": "select"
+    }
+  }
+}
+```
+
+**Comportamento**:
+- Se `use_mcp_prompt: true`, il workflow engine cerca il prompt associato al tool
+- Se trovato, **arricchisce** l'instruction esistente con il prompt
+- Se instruction è generica ("Execute MCP tool"), la **sostituisce** completamente
+- Se il prompt non è disponibile, usa l'instruction originale
+
+**Esempio concreto**:
+
+Template originale:
+```json
+{
+  "instruction": "Query sales data",
+  "use_mcp_prompt": true
+}
+```
+
+Dopo auto-population (runtime):
+```json
+{
+  "instruction": "Query sales data\n\n## MCP Tool Guidance\n\n**Database Query Tool Instructions**\n\nThis tool requires a structured query_payload object with:\n- database: Target database name\n- table: Table to query\n- method: 'select', 'insert', 'update', or 'delete'\n- columns: Array of column names\n- filters: Object with filter conditions\n\nExample:\n{\n  \"database\": \"sales_db\",\n  \"table\": \"orders\",\n  \"method\": \"select\",\n  \"columns\": [\"id\", \"amount\", \"date\"],\n  \"filters\": {\"status\": \"completed\"}\n}\n\nIMPORTANT:\n- Always specify required fields\n- Use proper data types\n- Avoid SQL injection in filters"
+}
+```
+
+### Esempi Pratici MCP Prompts
+
+#### Esempio 1: Tool con Prompt Associato
+
+**Server MCP** (corporate_server) espone:
+
+```json
+// GET http://localhost:8005/mcp → prompts/list
+{
+  "result": {
+    "prompts": [
+      {
+        "name": "database_query_guide",
+        "description": "Instructions for safely querying corporate databases...",
+        "arguments": [
+          {"name": "database", "description": "Target database", "required": true},
+          {"name": "query_type", "description": "Type of query", "required": false}
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Tool MCP**:
+```python
+# Tool registrato con associated_prompt
+tool = MCPTool(
+    name="query_database",
+    description="Query corporate database",
+    associated_prompt="database_query_guide",  // ← Link al prompt
+    server_name="corporate"
+)
+```
+
+**Nel workflow**:
+```json
+{
+  "id": "fetch_sales",
+  "agent": "mcp_tool",
+  "tool_name": "query_database",
+  "use_mcp_prompt": true,  // ← Usa il prompt associato
+
+  "params": {
+    "query_payload": {
+      "database": "sales_db",
+      "table": "orders",
+      "method": "select"
+    }
+  }
+}
+```
+
+#### Esempio 2: Workflow con e senza MCP Prompt
+
+**Senza MCP Prompt** (instruction manuale):
+```json
+{
+  "id": "custom_query",
+  "agent": "mcp_tool",
+  "tool_name": "query_database",
+  "use_mcp_prompt": false,  // ← Usa solo instruction manuale
+
+  "instruction": "Execute a simple select query on the users table to retrieve active users only. Use filters carefully.",
+
+  "params": {...}
+}
+```
+
+**Con MCP Prompt** (auto-population):
+```json
+{
+  "id": "guided_query",
+  "agent": "mcp_tool",
+  "tool_name": "query_database",
+  "use_mcp_prompt": true,  // ← Arricchisce con prompt MCP
+
+  "instruction": "Retrieve active users",  // Verrà espanso
+
+  "params": {...}
+}
+```
+
+Risultato runtime per `guided_query`:
+```
+Instruction finale:
+"Retrieve active users
+
+## MCP Tool Guidance
+
+[Full database query guide from MCP server, including:
+- Required parameters
+- Data types
+- Security considerations
+- Examples
+- Common pitfalls]"
+```
+
+#### Esempio 3: ReAct Agent con MCP Tools Enhanced
+
+**Scenario**: Supervisor ReAct agent deve scegliere tra più tool MCP.
+
+**Tool descriptions (senza prompt)**:
+```
+1. query_database - Query corporate database
+2. get_weather - Get weather data
+3. send_email - Send email via SMTP
+```
+
+**Tool descriptions (con prompt injection)**:
+```
+1. query_database - Query corporate database
+
+   ## Usage Guide
+
+   This tool accepts a query_payload with database, table, method,
+   columns, and filters. Always validate database name against
+   allowed list. Use parameterized queries to prevent SQL injection.
+
+   Example:
+   {"database": "sales_db", "table": "orders", "method": "select", ...}
+
+2. get_weather - Get weather data
+
+   ## Usage Guide
+
+   Requires city name and optional units (metric/imperial).
+   Returns current conditions and 7-day forecast. Rate limited
+   to 100 requests/hour.
+
+3. send_email - Send email via SMTP
+
+   ## Usage Guide
+
+   Requires recipient, subject, body. Optional: cc, bcc, attachments.
+   Validates email format. Max 10 recipients per call. Attachments
+   limited to 10MB total.
+```
+
+**Risultato**: L'agente ReAct ha informazioni dettagliate per:
+- Selezionare il tool giusto
+- Costruire i parametri corretti
+- Evitare errori comuni
+
+### Configurazione MCP Prompts
+
+#### Associare Prompts ai Tool
+
+**Opzione 1: Nome uguale** (convenzione)
+```python
+# Tool: query_database
+# Prompt: query_database  ← Stesso nome, auto-associato
+```
+
+**Opzione 2: Campo associated_prompt**
+```python
+tool = MCPTool(
+    name="db_query",
+    description="...",
+    associated_prompt="database_query_guide"  // ← Explicit link
+)
+```
+
+#### Verificare Prompts Disponibili
+
+```python
+from utils.mcp_registry import get_mcp_registry
+
+registry = get_mcp_registry()
+
+# Lista prompts
+prompts = await registry.get_available_prompts()
+
+for prompt in prompts:
+    print(f"\nPrompt: {prompt.name}")
+    print(f"Server: {prompt.server_name}")
+    print(f"Description: {prompt.description[:100]}...")
+    print(f"Arguments: {[arg.name for arg in prompt.arguments]}")
+```
+
+Output esempio:
+```
+Prompt: database_query_guide
+Server: corporate
+Description: Comprehensive guide for querying corporate databases safely. This tool requires structured...
+Arguments: ['database', 'query_type']
+
+Prompt: email_sending_guide
+Server: communication
+Description: Instructions for sending emails through the corporate SMTP server...
+Arguments: ['recipient_type', 'template_id']
+```
+
+### Best Practices MCP Prompts
+
+#### ✅ DO
+
+**1. Usa `use_mcp_prompt: true` quando disponibile**
+```json
+// ✅ GOOD: Sfrutta guidance del server
+{
+  "agent": "mcp_tool",
+  "tool_name": "complex_api",
+  "use_mcp_prompt": true,
+  "instruction": "Call API for user data"  // Verrà arricchito
+}
+```
+
+**2. Override selettivo quando necessario**
+```json
+// ✅ GOOD: Prompt MCP + custom instruction
+{
+  "agent": "mcp_tool",
+  "tool_name": "query_database",
+  "use_mcp_prompt": true,
+  "instruction": "IMPORTANT: Query read-replica only. Standard query for active users."
+  // → Instruction custom + MCP guidance appended
+}
+```
+
+**3. Documenta quando NON usi MCP prompt**
+```json
+// ✅ GOOD: Spiega perché skip MCP prompt
+{
+  "agent": "mcp_tool",
+  "tool_name": "query_database",
+  "use_mcp_prompt": false,  // Skip: istruzioni specifiche per questo workflow
+  "instruction": "Execute pre-validated query from template X. Skip normal validation."
+}
+```
+
+**4. Verifica prompt availability prima del deploy**
+```python
+# ✅ GOOD: Pre-flight check
+registry = get_mcp_registry()
+prompt = await registry.get_prompt("critical_tool_guide")
+
+if not prompt:
+    logger.warning("MCP prompt 'critical_tool_guide' not available. Workflow may have reduced accuracy.")
+```
+
+#### ❌ DON'T
+
+**1. Non duplicare istruzioni MCP nei template**
+```json
+// ❌ BAD: Duplicate MCP prompt content
+{
+  "use_mcp_prompt": true,
+  "instruction": "This tool requires query_payload with database, table, method... [entire MCP prompt duplicated]"
+  // → Ridondante, il prompt verrà aggiunto automaticamente
+}
+
+// ✅ GOOD: Breve instruction + auto-inject
+{
+  "use_mcp_prompt": true,
+  "instruction": "Query sales data for Q1"
+}
+```
+
+**2. Non assumere che i prompts siano sempre disponibili**
+```json
+// ❌ BAD: Assume prompt exists
+{
+  "use_mcp_prompt": true,
+  "instruction": ""  // Vuota! Se prompt non c'è, nessuna guidance
+}
+
+// ✅ GOOD: Fallback instruction
+{
+  "use_mcp_prompt": true,
+  "instruction": "Query database for sales data. Use query_payload format."
+}
+```
+
+**3. Non hardcodare prompt nei workflow**
+```json
+// ❌ BAD: Hardcoded prompt (diventa stale)
+{
+  "use_mcp_prompt": false,
+  "instruction": "Tool guide v1.2: Use format X, avoid Y..."
+  // → Se server aggiorna prompt, questo è obsoleto
+}
+
+// ✅ GOOD: Usa MCP prompt dinamico
+{
+  "use_mcp_prompt": true,
+  "instruction": "Query sales data"
+}
+```
+
+### Troubleshooting MCP Prompts
+
+#### Problema: Prompt non trovato
+
+**Sintomo**: Log message
+```
+📋 Auto-populated instruction for 'node_id' with MCP prompt
+[Non appare]
+```
+
+**Soluzioni**:
+
+1. Verifica che il server MCP supporti prompts:
+```bash
+curl -X POST http://localhost:8005/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "prompts/list"
+  }'
+```
+
+2. Controlla registry:
+```python
+prompts = await registry.get_available_prompts()
+print([p.name for p in prompts])
+```
+
+3. Controlla tool association:
+```python
+tool = await registry.get_tool("query_database")
+print(f"Associated prompt: {tool.associated_prompt}")
+```
+
+#### Problema: Prompt non aggiunto a tool description
+
+**Sintomo**: ReAct agent non vede guidance nei tool
+
+**Soluzioni**:
+
+1. Verifica che `get_mcp_langchain_tools()` sia chiamato dopo discovery:
+```python
+# ✅ CORRECT ORDER
+await registry.discover_all_servers()  # ← Prima
+tools = await get_mcp_langchain_tools()  # ← Poi
+```
+
+2. Check tool description:
+```python
+tools = await get_mcp_langchain_tools()
+for tool in tools:
+    if "Usage Guide" in tool.description:
+        print(f"✓ {tool.name} has prompt")
+    else:
+        print(f"✗ {tool.name} missing prompt")
 ```
 
 ---

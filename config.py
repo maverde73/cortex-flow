@@ -353,25 +353,44 @@ if settings.mcp_enable:
     # Parse MCP servers from loaded env vars
     servers = {}
     import re
-    pattern = re.compile(r'^MCP_SERVER_([A-Z_]+)_([A-Z_]+)$')
+
+    # Known parameter names (must match last part of env var)
+    known_params = {
+        'TYPE', 'TRANSPORT', 'URL', 'API_KEY', 'LOCAL_PATH', 'ENABLED', 'TIMEOUT',
+        'PROMPTS_FILE', 'PROMPT_TOOL_ASSOCIATION'
+    }
 
     for key, value in env_vars.items():
-        match = pattern.match(key)
-        if match:
-            server_name = match.group(1).lower()
-            param_name = match.group(2).lower()
+        if not key.startswith('MCP_SERVER_'):
+            continue
 
-            if server_name not in servers:
-                servers[server_name] = {}
+        # Remove MCP_SERVER_ prefix
+        rest = key[11:]  # len('MCP_SERVER_') = 11
 
-            # Convert boolean strings
-            if value.lower() in ('true', 'false'):
-                value = value.lower() == 'true'
-            # Convert numeric strings
-            elif value.replace('.', '').replace('-', '').isdigit():
-                value = float(value) if '.' in value else int(value)
+        # Find last known parameter
+        param_name = None
+        server_name = None
 
-            servers[server_name][param_name] = value
+        for known_param in known_params:
+            if rest.endswith(f'_{known_param}'):
+                param_name = known_param.lower()
+                server_name = rest[:-(len(known_param) + 1)].lower()  # Remove _PARAM
+                break
+
+        if not server_name or not param_name:
+            continue  # Skip unknown parameters
+
+        if server_name not in servers:
+            servers[server_name] = {}
+
+        # Convert boolean strings
+        if value and value.lower() in ('true', 'false'):
+            value = value.lower() == 'true'
+        # Convert numeric strings
+        elif value and value.replace('.', '').replace('-', '').isdigit():
+            value = float(value) if '.' in value else int(value)
+
+        servers[server_name][param_name] = value
 
     settings.mcp_servers = servers
 

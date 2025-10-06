@@ -322,6 +322,9 @@ class WorkflowEngine:
         """
         Execute an MCP tool.
 
+        If node.use_mcp_prompt is True, will attempt to auto-populate
+        instruction with MCP prompt guidance from the server.
+
         Args:
             node: Node with MCP tool configuration
             state: Workflow state
@@ -334,8 +337,27 @@ class WorkflowEngine:
             raise ValueError(f"MCP tool node '{node.id}' missing tool_name")
 
         from utils.mcp_client import MCPClient
+        from utils.mcp_registry import get_mcp_registry
 
         client = MCPClient()
+
+        # Auto-populate instruction with MCP prompt if requested
+        if node.use_mcp_prompt:
+            registry = get_mcp_registry()
+
+            # Try to get the tool to find associated prompt
+            tool = await registry.get_tool(node.tool_name)
+            if tool and tool.associated_prompt:
+                prompt = await registry.get_prompt(tool.associated_prompt)
+                if prompt and prompt.description:
+                    logger.info(f"📋 Auto-populated instruction for '{node.id}' with MCP prompt")
+                    # Enhance node instruction with prompt (non-destructive)
+                    if node.instruction and not node.instruction.startswith("Execute MCP tool"):
+                        # User provided custom instruction, append prompt
+                        node.instruction = f"{node.instruction}\n\n## MCP Tool Guidance\n{prompt.description}"
+                    else:
+                        # Generic instruction, replace with prompt
+                        node.instruction = prompt.description
 
         # Substitute variables in params
         tool_params = {}

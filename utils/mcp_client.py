@@ -317,12 +317,46 @@ class MCPClient:
             raise RuntimeError(f"Local MCP tool call failed: {str(e)}") from e
 
 
+async def _get_tool_prompt(mcp_tool: MCPTool) -> Optional[str]:
+    """
+    Get the MCP prompt associated with a tool, if available.
+
+    Args:
+        mcp_tool: MCP tool metadata
+
+    Returns:
+        Prompt text or None if no prompt is associated
+    """
+    try:
+        registry = get_mcp_registry()
+
+        # Check if tool has associated_prompt
+        if mcp_tool.associated_prompt:
+            prompt = await registry.get_prompt(mcp_tool.associated_prompt)
+            if prompt and prompt.description:
+                return prompt.description
+
+        # Fallback: Try to find prompt with same name as tool
+        prompt = await registry.get_prompt(mcp_tool.name)
+        if prompt and prompt.description:
+            return prompt.description
+
+        # No prompt found
+        return None
+
+    except Exception as e:
+        logger.debug(f"Error retrieving prompt for tool '{mcp_tool.name}': {e}")
+        return None
+
+
 def create_langchain_tool_from_mcp(mcp_tool: MCPTool, client: MCPClient) -> StructuredTool:
     """
     Convert an MCP tool to a LangChain StructuredTool.
 
     This allows MCP tools to be used seamlessly with LangChain agents
     and integrated into the ReAct pattern.
+
+    The tool description will be enhanced with MCP prompt guidance if available.
 
     Args:
         mcp_tool: MCP tool metadata
@@ -416,6 +450,8 @@ async def get_mcp_langchain_tools() -> list:
     This function is called by the agent factory to integrate MCP tools
     into the supervisor's tool set.
 
+    Tool descriptions will be enhanced with MCP prompts if available.
+
     Returns:
         List of LangChain StructuredTool objects
     """
@@ -425,11 +461,20 @@ async def get_mcp_langchain_tools() -> list:
     # Get all available MCP tools
     mcp_tools = await registry.get_available_tools()
 
-    # Convert to LangChain tools
+    # Convert to LangChain tools with prompt enhancement
     langchain_tools = []
 
     for mcp_tool in mcp_tools:
         try:
+            # Get associated prompt if available
+            prompt_text = await _get_tool_prompt(mcp_tool)
+
+            # Enhance tool description with prompt
+            if prompt_text:
+                original_description = mcp_tool.description
+                mcp_tool.description = f"{original_description}\n\n## Usage Guide\n{prompt_text}"
+                logger.debug(f"Enhanced '{mcp_tool.name}' description with MCP prompt")
+
             lc_tool = create_langchain_tool_from_mcp(mcp_tool, client)
             langchain_tools.append(lc_tool)
             logger.debug(f"Created LangChain tool for MCP tool '{mcp_tool.name}'")

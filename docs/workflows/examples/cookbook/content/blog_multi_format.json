@@ -1,0 +1,72 @@
+{
+  "name": "blog_multi_format_generator",
+  "version": "1.0",
+  "description": "Transform blog post into multiple social formats. Params: {blog_url, target_platforms[]}",
+  "trigger_patterns": [
+    ".*repurpose.*blog.*",
+    ".*social.*content.*from.*blog.*",
+    ".*multi.*platform.*"
+  ],
+
+  "nodes": [
+    {
+      "id": "fetch_blog",
+      "agent": "researcher",
+      "instruction": "Fetch and analyze blog post from: {blog_url}\n\nExtract:\n- Main thesis/argument\n- Key points (5-7)\n- Target audience\n- Tone and style\n- Notable quotes\n- Call-to-action",
+      "timeout": 120
+    },
+    {
+      "id": "create_twitter_thread",
+      "agent": "writer",
+      "instruction": "Create Twitter/X thread (10-15 tweets) from blog:\n{fetch_blog}\n\nRules:\n- First tweet: Attention-grabbing hook\n- Each tweet: max 280 chars\n- Use emojis strategically\n- Include 1-2 hashtags per tweet\n- End with CTA linking to blog\n- Maintain narrative flow\n\nFormat: Number each tweet (1/15, 2/15, etc.)",
+      "depends_on": ["fetch_blog"],
+      "parallel_group": "social_formats",
+      "timeout": 180
+    },
+    {
+      "id": "create_linkedin_post",
+      "agent": "writer",
+      "instruction": "Create LinkedIn post from blog:\n{fetch_blog}\n\nRules:\n- Professional tone\n- 1300-2000 characters\n- Hook in first 2 lines\n- 3-5 relevant hashtags\n- Include question for engagement\n- Link to blog at end\n- Professional formatting (line breaks, bullets)\n\nFormat: Ready-to-publish LinkedIn post.",
+      "depends_on": ["fetch_blog"],
+      "parallel_group": "social_formats",
+      "timeout": 180
+    },
+    {
+      "id": "create_instagram_carousel",
+      "agent": "writer",
+      "instruction": "Create Instagram carousel content (8-10 slides) from blog:\n{fetch_blog}\n\nFor each slide provide:\n- Slide number\n- Main text (short, visual-friendly)\n- Image description/suggestion\n- Design notes\n\nRules:\n- Slide 1: Eye-catching title\n- Slides 2-9: One key point per slide\n- Slide 10: CTA with link in bio\n- Keep text minimal (Instagram is visual)",
+      "depends_on": ["fetch_blog"],
+      "parallel_group": "social_formats",
+      "timeout": 180
+    },
+    {
+      "id": "create_youtube_script",
+      "agent": "writer",
+      "instruction": "Create YouTube video script (5-7 minutes) from blog:\n{fetch_blog}\n\nStructure:\n- INTRO (0:00-0:30): Hook + what viewer will learn\n- MAIN CONTENT (0:30-6:00): Key points with examples\n- OUTRO (6:00-7:00): Summary + CTA\n\nInclude:\n- Timestamps\n- B-roll suggestions\n- On-screen text suggestions\n- Links to include in description",
+      "depends_on": ["fetch_blog"],
+      "parallel_group": "social_formats",
+      "timeout": 240
+    },
+    {
+      "id": "create_newsletter_snippet",
+      "agent": "writer",
+      "instruction": "Create email newsletter snippet from blog:\n{fetch_blog}\n\nFormat:\n- Subject line (compelling, 50 chars)\n- Preview text (100 chars)\n- Email body (300-400 words)\n- Highlight key insight\n- CTA button text\n- P.S. line\n\nTone: Conversational but professional.",
+      "depends_on": ["fetch_blog"],
+      "parallel_group": "social_formats",
+      "timeout": 150
+    },
+    {
+      "id": "compile_content_package",
+      "agent": "writer",
+      "instruction": "Compile comprehensive multi-platform content package:\n\n# Content Repurposing Package\n\n## Original Blog\n{fetch_blog}\n\n## Twitter/X Thread\n{create_twitter_thread}\n\n## LinkedIn Post\n{create_linkedin_post}\n\n## Instagram Carousel\n{create_instagram_carousel}\n\n## YouTube Script\n{create_youtube_script}\n\n## Newsletter Snippet\n{create_newsletter_snippet}\n\n---\n\n## Publishing Schedule Suggestion\n- Day 1: LinkedIn + Newsletter\n- Day 2: Twitter thread\n- Day 3: Instagram carousel\n- Day 4: YouTube video\n\n## Hashtag Strategy\n[Compile all hashtags used across platforms]\n\n## Performance Tracking\n[Suggest metrics to track for each platform]",
+      "depends_on": [
+        "create_twitter_thread",
+        "create_linkedin_post",
+        "create_instagram_carousel",
+        "create_youtube_script",
+        "create_newsletter_snippet"
+      ],
+      "timeout": 180
+    }
+  ]
+}

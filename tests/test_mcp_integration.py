@@ -607,3 +607,194 @@ class TestMCPErrorHandling:
                         tool_name="query_database",
                         arguments={"query": "test"}
                     )
+
+
+# ============================================================================
+# MCP Prompts Discovery Tests
+# ============================================================================
+
+class TestMCPPromptDiscovery:
+    """Tests for MCP prompt discovery and integration"""
+
+    @pytest.mark.asyncio
+    async def test_prompt_discovery_success(self, remote_server_config):
+        """Test successful prompt discovery from MCP server"""
+        from utils.mcp_registry import MCPPrompt, MCPPromptArgument
+
+        registry = MCPToolRegistry()
+
+        # Create actual async functions for mocking (avoid AsyncMock coroutine issues)
+        async def mock_health_response(*args, **kwargs):
+            mock_resp = AsyncMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {"content-type": "application/json"}
+            return mock_resp
+
+        async def mock_tools_response(*args, **kwargs):
+            mock_resp = AsyncMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {"content-type": "application/json"}
+            mock_resp.json.return_value = {"result": {"tools": []}}
+            return mock_resp
+
+        async def mock_prompts_response(*args, **kwargs):
+            mock_resp = AsyncMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {"content-type": "application/json"}
+            mock_resp.json.return_value = {
+                "result": {
+                    "prompts": [
+                        {
+                            "name": "database_query_guide",
+                            "description": "Instructions for querying corporate database safely",
+                            "arguments": [
+                                {
+                                    "name": "table_name",
+                                    "description": "Name of the database table",
+                                    "required": True
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+            return mock_resp
+
+        call_count = [0]
+
+        async def mock_post(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:  # Health check
+                return await mock_health_response(*args, **kwargs)
+            elif call_count[0] == 2:  # tools/list
+                return await mock_tools_response(*args, **kwargs)
+            else:  # prompts/list
+                return await mock_prompts_response(*args, **kwargs)
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = mock_post
+            mock_client.return_value.__aenter__.return_value.get = mock_health_response
+
+            # Register server
+            success = await registry.register_server(remote_server_config)
+            assert success
+
+            # Check prompts were discovered
+            prompts = await registry.get_available_prompts()
+            assert len(prompts) == 1
+            assert prompts[0].name == "database_query_guide"
+            assert prompts[0].description == "Instructions for querying corporate database safely"
+            assert len(prompts[0].arguments) == 1
+            assert prompts[0].arguments[0].name == "table_name"
+
+    @pytest.mark.asyncio
+    async def test_prompt_not_available(self, remote_server_config):
+        """Test graceful handling when server has no prompts"""
+        registry = MCPToolRegistry()
+
+        # Mock HTTP response with no prompts
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.json.return_value = {
+            "result": {
+                "prompts": []
+            }
+        }
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_health = AsyncMock()
+            mock_health.status_code = 200
+
+            mock_tools = AsyncMock()
+            mock_tools.status_code = 200
+            mock_tools.headers = {}
+            mock_tools.json.return_value = {"result": {"tools": []}}
+
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                side_effect=[mock_health, mock_tools, mock_response]
+            )
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_health
+            )
+
+            success = await registry.register_server(remote_server_config)
+            assert success
+
+            # No prompts should be available
+            prompts = await registry.get_available_prompts()
+            assert len(prompts) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_prompt_by_name(self, remote_server_config):
+        """Test retrieving a specific prompt by name"""
+        from utils.mcp_registry import MCPPrompt, MCPPromptArgument
+
+        registry = MCPToolRegistry()
+
+        # Create async mock functions
+        async def mock_health_response(*args, **kwargs):
+            mock_resp = AsyncMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {"content-type": "application/json"}
+            return mock_resp
+
+        async def mock_tools_response(*args, **kwargs):
+            mock_resp = AsyncMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {"content-type": "application/json"}
+            mock_resp.json.return_value = {"result": {"tools": []}}
+            return mock_resp
+
+        async def mock_prompts_response(*args, **kwargs):
+            mock_resp = AsyncMock()
+            mock_resp.status_code = 200
+            mock_resp.headers = {"content-type": "application/json"}
+            mock_resp.json.return_value = {
+                "result": {
+                    "prompts": [
+                        {
+                            "name": "prompt1",
+                            "description": "First prompt",
+                            "arguments": []
+                        },
+                        {
+                            "name": "prompt2",
+                            "description": "Second prompt",
+                            "arguments": []
+                        }
+                    ]
+                }
+            }
+            return mock_resp
+
+        call_count = [0]
+
+        async def mock_post(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return await mock_health_response(*args, **kwargs)
+            elif call_count[0] == 2:
+                return await mock_tools_response(*args, **kwargs)
+            else:
+                return await mock_prompts_response(*args, **kwargs)
+
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = mock_post
+            mock_client.return_value.__aenter__.return_value.get = mock_health_response
+
+            await registry.register_server(remote_server_config)
+
+            # Get specific prompt
+            prompt1 = await registry.get_prompt("prompt1")
+            assert prompt1 is not None
+            assert prompt1.name == "prompt1"
+            assert prompt1.description == "First prompt"
+
+            prompt2 = await registry.get_prompt("prompt2")
+            assert prompt2 is not None
+            assert prompt2.name == "prompt2"
+
+            # Non-existent prompt
+            prompt3 = await registry.get_prompt("non_existent")
+            assert prompt3 is None

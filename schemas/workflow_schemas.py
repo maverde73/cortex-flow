@@ -50,6 +50,13 @@ class WorkflowNode(BaseModel):
     tool_name: Optional[str] = Field(None, description="MCP tool name (if agent=mcp_tool)")
     params: Dict[str, Any] = Field(default_factory=dict, description="Additional parameters")
     template: Optional[str] = Field(None, description="Template name for writer")
+    use_mcp_prompt: bool = Field(
+        default=False,
+        description=(
+            "If True, automatically populate instruction with MCP prompt guidance. "
+            "Only applies when agent='mcp_tool' and MCP server provides prompts"
+        )
+    )
 
 
 class WorkflowTemplate(BaseModel):

@@ -1,0 +1,72 @@
+{
+  "name": "content_quality_assurance_loop",
+  "version": "1.0",
+  "description": "Iterative content improvement with quality gates. Params: {content_type, topic, quality_threshold}",
+  "trigger_patterns": [
+    ".*quality.*assurance.*content.*",
+    ".*review.*improve.*content.*",
+    ".*iterative.*content.*"
+  ],
+
+  "nodes": [
+    {
+      "id": "generate_initial_draft",
+      "agent": "writer",
+      "instruction": "Create initial {content_type} draft on topic: {topic}\n\nRequirements:\n- Comprehensive coverage\n- Clear structure\n- Engaging style\n- Factual accuracy\n- Target length: {target_length} words\n\nInclude metadata:\n```json\n{\n  \"word_count\": <count>,\n  \"readability_estimate\": \"<easy|medium|hard>\",\n  \"confidence\": <0.0-1.0>\n}\n```",
+      "timeout": 300
+    },
+    {
+      "id": "review_quality",
+      "agent": "analyst",
+      "instruction": "Review content quality:\n{generate_initial_draft}\n\nEvaluate (score 0.0-1.0 each):\n1. **Clarity**: Easy to understand?\n2. **Accuracy**: Factually correct?\n3. **Completeness**: Covers all aspects?\n4. **Structure**: Well-organized?\n5. **Engagement**: Interesting to read?\n6. **Grammar**: Error-free?\n7. **Tone**: Appropriate for audience?\n\nProvide:\n- Overall quality score (average)\n- Specific issues found (list)\n- Improvement suggestions (prioritized)\n\nReturn metadata:\n```json\n{\n  \"quality_score\": <0.0-1.0>,\n  \"issues\": [\"issue1\", \"issue2\"],\n  \"suggestions\": [\"suggestion1\", \"suggestion2\"],\n  \"iteration_count\": 1\n}\n```",
+      "depends_on": ["generate_initial_draft"],
+      "timeout": 180
+    },
+    {
+      "id": "check_quality_gate",
+      "agent": "analyst",
+      "instruction": "Extract quality_score from review:\n{review_quality}\n\nAlso extract iteration_count.\n\nReturn ONLY JSON:\n```json\n{\n  \"quality_score\": <score>,\n  \"iteration_count\": <count>\n}\n```",
+      "depends_on": ["review_quality"]
+    },
+    {
+      "id": "improve_content",
+      "agent": "writer",
+      "instruction": "Improve content based on review feedback:\n\nOriginal Content:\n{generate_initial_draft}\n\nReview Feedback:\n{review_quality}\n\nAddress all identified issues and implement suggestions. Maintain original intent but enhance quality.\n\nInclude updated metadata with incremented iteration_count.",
+      "depends_on": ["check_quality_gate"],
+      "timeout": 240
+    },
+    {
+      "id": "final_review",
+      "agent": "analyst",
+      "instruction": "Final quality review:\n{improve_content}\n\nProvide:\n- Final quality score\n- Improvements made\n- Remaining limitations (if any)\n- Recommendation: APPROVE or NEEDS_REVISION\n\nReturn metadata:\n```json\n{\n  \"quality_score\": <0.0-1.0>,\n  \"improvements\": [\"improvement1\", \"improvement2\"],\n  \"recommendation\": \"<APPROVE|NEEDS_REVISION>\"\n}\n```",
+      "depends_on": ["improve_content"]
+    },
+    {
+      "id": "publish_content",
+      "agent": "writer",
+      "instruction": "Prepare final content for publication:\n\nContent:\n{improve_content}\n\nFinal Review:\n{final_review}\n\nFormat for publication:\n- Add title and metadata\n- Format for target platform\n- Include SEO elements if applicable\n- Add publication checklist\n\nIf quality_score >= {quality_threshold}: Mark as READY TO PUBLISH\nElse: Mark as PUBLISHED WITH CAVEATS and list limitations.",
+      "depends_on": ["final_review"]
+    }
+  ],
+
+  "conditional_edges": [
+    {
+      "from_node": "check_quality_gate",
+      "conditions": [
+        {
+          "field": "quality_score",
+          "operator": ">=",
+          "value": "{quality_threshold}",
+          "next_node": "publish_content"
+        },
+        {
+          "field": "iteration_count",
+          "operator": ">=",
+          "value": 3,
+          "next_node": "final_review"
+        }
+      ],
+      "default": "improve_content"
+    }
+  ]
+}

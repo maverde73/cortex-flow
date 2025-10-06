@@ -1,0 +1,51 @@
+{
+  "name": "market_trend_analysis",
+  "version": "1.0",
+  "description": "Analyze market trends with forecasting. Params: {industry, time_period, focus_areas[]}",
+  "trigger_patterns": [
+    ".*market.*trend.*",
+    ".*industry.*analysis.*",
+    ".*forecast.*market.*"
+  ],
+
+  "nodes": [
+    {
+      "id": "research_current_trends",
+      "agent": "researcher",
+      "instruction": "Research current market trends in {industry} for {time_period}:\n- Emerging technologies\n- Consumer behavior shifts\n- Regulatory changes\n- Economic factors\n- Competitive dynamics\n\nFocus areas: {focus_areas}",
+      "timeout": 360
+    },
+    {
+      "id": "research_historical_data",
+      "agent": "researcher",
+      "instruction": "Research historical data for {industry} (past 3-5 years):\n- Growth rates\n- Market size evolution\n- Key milestones\n- Disruptions\n- Pattern changes",
+      "timeout": 300
+    },
+    {
+      "id": "analyze_trends",
+      "agent": "analyst",
+      "instruction": "Analyze market trends:\n\nCurrent State:\n{research_current_trends}\n\nHistorical Context:\n{research_historical_data}\n\nIdentify:\n1. Top 5 growing trends\n2. Top 5 declining trends\n3. Disruption signals\n4. Pattern correlations\n5. Drivers and inhibitors",
+      "depends_on": ["research_current_trends", "research_historical_data"],
+      "timeout": 180
+    },
+    {
+      "id": "forecast_future",
+      "agent": "analyst",
+      "instruction": "Based on trend analysis:\n{analyze_trends}\n\nCreate 12-18 month forecast for {industry}:\n- Expected growth areas\n- Potential disruptions\n- Investment opportunities\n- Risk factors\n- Confidence levels (high/medium/low)\n\nInclude supporting rationale for each prediction.",
+      "depends_on": ["analyze_trends"]
+    },
+    {
+      "id": "strategic_insights",
+      "agent": "analyst",
+      "instruction": "Extract actionable strategic insights from forecast:\n{forecast_future}\n\nProvide:\n1. Top 3 opportunities to capitalize on\n2. Top 3 threats to prepare for\n3. Timing considerations\n4. Resource requirements\n5. Success metrics",
+      "depends_on": ["forecast_future"]
+    },
+    {
+      "id": "final_report",
+      "agent": "writer",
+      "instruction": "Create comprehensive market trend analysis report:\n\n## {industry} Market Analysis ({time_period})\n\n### Executive Summary\n[3-4 key takeaways]\n\n### Current Market Trends\n{analyze_trends}\n\n### 12-18 Month Forecast\n{forecast_future}\n\n### Strategic Recommendations\n{strategic_insights}\n\n### Methodology & Sources\n\nFormat: Professional analyst report with data visualizations descriptions.",
+      "depends_on": ["strategic_insights"],
+      "timeout": 240
+    }
+  ]
+}
