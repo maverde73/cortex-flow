@@ -1,0 +1,23 @@
+# Core Framework
+langchain-mcp-adapters
+langgraph
+langchain-openai
+langchain-anthropic
+python-dotenv
+pydantic-settings
+
+# Web Framework
+fastapi
+uvicorn[standard]
+
+# HTTP Client
+httpx
+
+# Tools
+tavily-python
+praw
+
+# Testing
+pytest
+pytest-asyncio
+respx

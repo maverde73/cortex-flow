@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # Web Researcher Agent
+  researcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cortex-researcher
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-4o-mini}
+      - RESEARCHER_PORT=8000
+    ports:
+      - "8001:8000"
+    command: python servers/researcher_server.py
+    networks:
+      - cortex-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - full
+      - research
+
+  # Analyst Agent
+  analyst:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cortex-analyst
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-4o-mini}
+      - ANALYST_PORT=8000
+    ports:
+      - "8003:8000"
+    command: python servers/analyst_server.py
+    networks:
+      - cortex-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - full
+      - analysis
+
+  # Writer Agent
+  writer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cortex-writer
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-4o-mini}
+      - WRITER_PORT=8000
+    ports:
+      - "8004:8000"
+    command: python servers/writer_server.py
+    networks:
+      - cortex-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - full
+      - writing
+
+  # Supervisor Agent (Main Entry Point)
+  supervisor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cortex-supervisor
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-4o-mini}
+      - SUPERVISOR_PORT=8000
+      # Configure URLs for other agents
+      - RESEARCHER_HOST=researcher
+      - RESEARCHER_PORT=8000
+      - ANALYST_HOST=analyst
+      - ANALYST_PORT=8000
+      - WRITER_HOST=writer
+      - WRITER_PORT=8000
+      # Agent management
+      - ENABLED_AGENTS=${ENABLED_AGENTS:-researcher,analyst,writer}
+      - AGENT_RETRY_ATTEMPTS=${AGENT_RETRY_ATTEMPTS:-3}
+      - AGENT_HEALTH_CHECK_INTERVAL=${AGENT_HEALTH_CHECK_INTERVAL:-30}
+    ports:
+      - "8000:8000"
+    command: python servers/supervisor_server.py
+    networks:
+      - cortex-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - full
+      - minimal
+      - research
+      - analysis
+      - writing
+
+networks:
+  cortex-network:
+    driver: bridge
