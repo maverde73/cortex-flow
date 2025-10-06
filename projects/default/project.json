@@ -1,0 +1,15 @@
+{
+  "name": "default",
+  "version": "1.0.0",
+  "description": "Default Cortex-Flow project with multi-agent configuration",
+  "active": true,
+  "created_at": "2025-10-06T00:00:00",
+  "settings": {
+    "checkpoint_backend": "postgres",
+    "postgres_url": "${POSTGRES_URL}",
+    "redis_url": "${REDIS_URL:-}",
+    "http_timeout": 120.0,
+    "http_max_connections": 100,
+    "http_max_keepalive_connections": 20
+  }
+}

@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.mcp_registry import get_mcp_registry, initialize_mcp_registry_from_config
-from config import settings
+from config_legacy import settings
 
 
 async def test_prompt_discovery():

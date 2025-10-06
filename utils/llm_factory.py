@@ -82,7 +82,7 @@ def get_llm(
         >>> llm, config = get_llm(agent="researcher", task="deep_analysis")
         >>> # Uses task-specific model and strategy if configured
     """
-    from config import settings
+    from config_legacy import settings
 
     # FASE 2: Get ReAct strategy configuration
     if react_strategy:
@@ -186,7 +186,7 @@ def _create_llm_from_string(
         ValueError: If model string is invalid
         ImportError: If required package is not installed
     """
-    from config import settings
+    from config_legacy import settings
 
     # Get registry
     registry = get_registry()
@@ -236,7 +236,7 @@ def _get_api_key_for_provider(provider: str) -> Optional[str]:
     Returns:
         API key if configured, None otherwise
     """
-    from config import settings
+    from config_legacy import settings
 
     key_mapping = {
         "openai": settings.openai_api_key,
@@ -259,7 +259,7 @@ def _get_fallback_model() -> Optional[str]:
     Returns:
         Model string if a provider is available, None otherwise
     """
-    from config import settings
+    from config_legacy import settings
 
     # Get fallback order from settings
     fallback_order_str = getattr(settings, "provider_fallback_order", None)
@@ -331,7 +331,7 @@ def validate_model_config(agent: Optional[str] = None, task: Optional[str] = Non
     try:
         # Try to get LLM (without creating it)
         # This will validate the configuration
-        from config import settings
+        from config_legacy import settings
 
         model_string = None
 

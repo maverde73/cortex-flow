@@ -26,7 +26,7 @@ from schemas.workflow_schemas import (
     WorkflowExecutionLog
 )
 from workflows.conditions import ConditionEvaluator, extract_sentiment_score
-from config import settings
+from config_legacy import settings
 
 logger = logging.getLogger(__name__)
 

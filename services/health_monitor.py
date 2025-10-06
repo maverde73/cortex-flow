@@ -112,7 +112,7 @@ def get_health_monitor() -> HealthMonitor:
     """Get or create the global health monitor instance."""
     global _global_monitor
     if _global_monitor is None:
-        from config import settings
+        from config_legacy import settings
         _global_monitor = HealthMonitor(
             check_interval=settings.agent_health_check_interval
         )

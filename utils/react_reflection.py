@@ -53,7 +53,7 @@ class ReflectionConfig:
     @classmethod
     def from_agent(cls, agent_name: str) -> "ReflectionConfig":
         """Get reflection config for specific agent."""
-        from config import settings
+        from config_legacy import settings
 
         # Check if reflection is enabled for this agent
         enabled_key = f"{agent_name}_enable_reflection"

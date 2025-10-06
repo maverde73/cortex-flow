@@ -8,7 +8,7 @@ Supports: Memory (dev), PostgreSQL (production), Redis (future).
 import logging
 from typing import Optional
 from langgraph.checkpoint.memory import MemorySaver
-from config import settings
+from config_legacy import settings
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,15 @@
+{
+  "name": "database_query",
+  "version": "1.0.0",
+  "description": "Intelligent database query project with hybrid routing: MCP query_database, web research, and multi-agent analysis",
+  "active": true,
+  "created_at": "2025-10-07T00:04:03.964696",
+  "settings": {
+    "checkpoint_backend": "postgres",
+    "postgres_url": "${POSTGRES_URL}",
+    "redis_url": "${REDIS_URL:-}",
+    "http_timeout": 120.0,
+    "http_max_connections": 100,
+    "http_max_keepalive_connections": 20
+  }
+}

@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage
 
 from schemas.mcp_protocol import MCPRequest, MCPResponse, HealthCheckResponse
 from agents.writer import get_writer_agent
-from config import settings
+from config_legacy import settings
 
 app = FastAPI(
     title="Writer Agent",

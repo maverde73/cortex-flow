@@ -502,14 +502,14 @@ class TestSupervisorMCPEndpoint:
         """Test that MCP endpoint is disabled by default."""
         # Note: In our test environment, MCP is enabled via .env
         # This test verifies the config variable exists
-        from config import settings
+        from config_legacy import settings
 
         assert hasattr(settings, 'supervisor_mcp_enable')
         assert isinstance(settings.supervisor_mcp_enable, bool)
 
     def test_mcp_endpoint_path_configurable(self):
         """Test that MCP endpoint path is configurable."""
-        from config import settings
+        from config_legacy import settings
 
         assert settings.supervisor_mcp_path == "/mcp"
 
@@ -525,21 +525,21 @@ class TestReActMCPIntegration:
 
     def test_mcp_tools_logging_config(self):
         """Test MCP tools logging configuration."""
-        from config import settings
+        from config_legacy import settings
 
         assert hasattr(settings, 'mcp_tools_enable_logging')
         assert isinstance(settings.mcp_tools_enable_logging, bool)
 
     def test_mcp_tools_reflection_config(self):
         """Test MCP tools reflection configuration."""
-        from config import settings
+        from config_legacy import settings
 
         assert hasattr(settings, 'mcp_tools_enable_reflection')
         assert isinstance(settings.mcp_tools_enable_reflection, bool)
 
     def test_mcp_tools_timeout_multiplier(self):
         """Test MCP tools timeout multiplier."""
-        from config import settings
+        from config_legacy import settings
 
         assert hasattr(settings, 'mcp_tools_timeout_multiplier')
         assert settings.mcp_tools_timeout_multiplier >= 1.0

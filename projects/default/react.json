@@ -1,0 +1,31 @@
+{
+  "execution": {
+    "timeout_seconds": 120.0,
+    "enable_early_stopping": true,
+    "max_consecutive_errors": 3
+  },
+  "logging": {
+    "enable_verbose": true,
+    "log_thoughts": true,
+    "log_actions": true,
+    "log_observations": true
+  },
+  "reflection": {
+    "enabled": true,
+    "quality_threshold": 0.7,
+    "max_iterations": 2
+  },
+  "hitl": {
+    "enabled": false,
+    "timeout_seconds": 300.0,
+    "timeout_action": "reject"
+  },
+  "advanced_modes": {
+    "cot_enabled": false,
+    "cot_min_steps": 2,
+    "tot_enabled": false,
+    "tot_max_branches": 5,
+    "adaptive_enabled": false,
+    "adaptive_max_escalations": 3
+  }
+}

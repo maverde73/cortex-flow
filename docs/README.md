@@ -62,6 +62,7 @@ Contribute to Cortex-Flow or extend it with custom agents.
 ### 📖 Reference
 Complete reference documentation for all configuration options.
 
+- [**Multi-Project Configuration**](reference/multi-project-config.md) - JSON-based config system (NEW!)
 - [**Environment Variables**](reference/environment-variables.md) - Complete .env reference
 - [**Configuration API**](reference/configuration.md) - config.py and Pydantic settings
 - [**REST API**](reference/api.md) - HTTP endpoints for agents

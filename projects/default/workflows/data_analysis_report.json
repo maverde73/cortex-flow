@@ -1,0 +1,48 @@
+{
+  "name": "data_analysis_report",
+  "version": "1.0",
+  "description": "Data analysis workflow with MCP database query: Query DB (MCP) → Analyze → Report",
+  "trigger_patterns": [
+    ".*database.*analysis.*",
+    "query.*database.*",
+    "analyze.*data.*"
+  ],
+  "nodes": [
+    {
+      "id": "query_data",
+      "agent": "mcp_tool",
+      "tool_name": "query_database",
+      "instruction": "Query corporate database for {query_topic}",
+      "depends_on": [],
+      "timeout": 60,
+      "params": {
+        "query_payload": {
+          "table": "{table_name}",
+          "method": "select",
+          "columns": ["id", "name", "value", "created_at"],
+          "limit": 100
+        }
+      }
+    },
+    {
+      "id": "analyze",
+      "agent": "analyst",
+      "instruction": "Analyze the following database query results and extract insights:\n\n{query_data}",
+      "depends_on": ["query_data"],
+      "timeout": 180
+    },
+    {
+      "id": "report",
+      "agent": "writer",
+      "instruction": "Create a data analysis report based on these insights:\n\n{analyze}",
+      "depends_on": ["analyze"],
+      "timeout": 180,
+      "template": "data_report"
+    }
+  ],
+  "conditional_edges": [],
+  "parameters": {
+    "query_topic": "user activity",
+    "table_name": "users"
+  }
+}

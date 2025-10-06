@@ -1,0 +1,81 @@
+{
+  "default_model": "openrouter/meta-llama/llama-3.3-70b-instruct",
+  "provider_fallback_order": "openai,anthropic,google,groq,openrouter",
+  "agents": {
+    "supervisor": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 8000,
+      "model": "openrouter/meta-llama/llama-3.3-70b-instruct",
+      "react_strategy": "fast",
+      "temperature": 0.7,
+      "max_iterations": 10,
+      "enable_reflection": false,
+      "reflection_threshold": 0.6,
+      "reflection_max_iterations": 1,
+      "enable_hitl": false,
+      "hitl_require_approval_for": "",
+      "hitl_timeout_seconds": 180.0
+    },
+    "researcher": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 8001,
+      "model": "openrouter/meta-llama/llama-3.3-70b-instruct",
+      "react_strategy": "deep",
+      "temperature": 0.7,
+      "max_iterations": 10,
+      "enable_reflection": false,
+      "reflection_threshold": 0.7,
+      "reflection_max_iterations": 2,
+      "enable_hitl": false,
+      "hitl_require_approval_for": "",
+      "hitl_timeout_seconds": 300.0
+    },
+    "reddit": {
+      "enabled": false,
+      "host": "localhost",
+      "port": 8002,
+      "model": null,
+      "react_strategy": "balanced",
+      "temperature": 0.7,
+      "max_iterations": 10,
+      "enable_reflection": false,
+      "reflection_threshold": 0.7,
+      "reflection_max_iterations": 2,
+      "enable_hitl": false,
+      "hitl_require_approval_for": "",
+      "hitl_timeout_seconds": 300.0
+    },
+    "analyst": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 8003,
+      "model": "openrouter/deepseek/deepseek-chat",
+      "react_strategy": "balanced",
+      "temperature": 0.7,
+      "max_iterations": 10,
+      "enable_reflection": false,
+      "reflection_threshold": 0.75,
+      "reflection_max_iterations": 2,
+      "enable_hitl": false,
+      "hitl_require_approval_for": "",
+      "hitl_timeout_seconds": 300.0
+    },
+    "writer": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 8004,
+      "model": "openrouter/google/gemini-2.0-flash-exp",
+      "react_strategy": "creative",
+      "temperature": 0.7,
+      "max_iterations": 10,
+      "enable_reflection": true,
+      "reflection_threshold": 0.8,
+      "reflection_max_iterations": 3,
+      "enable_hitl": false,
+      "hitl_require_approval_for": "publish_*,send_*,delete_*",
+      "hitl_timeout_seconds": 600.0
+    }
+  }
+}

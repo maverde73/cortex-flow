@@ -973,7 +973,7 @@ async def initialize_mcp_registry_from_config():
     This should be called at application startup to register
     all configured MCP servers.
     """
-    from config import settings
+    from config_legacy import settings
 
     registry = get_mcp_registry()
 

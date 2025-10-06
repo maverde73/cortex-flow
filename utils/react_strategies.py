@@ -183,7 +183,7 @@ def get_strategy_for_agent(
     Returns:
         ReactConfig for the agent/task
     """
-    from config import settings
+    from config_legacy import settings
 
     # Priority 1: Task-specific strategy
     if task_name:

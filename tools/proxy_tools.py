@@ -13,7 +13,7 @@ from typing import Optional
 from uuid import uuid4
 
 from schemas.mcp_protocol import MCPRequest, MCPResponse
-from config import settings
+from config_legacy import settings
 
 logger = logging.getLogger(__name__)
 

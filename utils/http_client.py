@@ -6,7 +6,7 @@ Uses httpx AsyncClient with connection pooling for optimal performance.
 
 import httpx
 from typing import Optional
-from config import settings
+from config_legacy import settings
 
 
 class HTTPClientManager:

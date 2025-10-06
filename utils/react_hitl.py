@@ -137,7 +137,7 @@ class HITLConfig:
 
         Loads agent-specific and global HITL configuration.
         """
-        from config import settings
+        from config_legacy import settings
 
         # Check if HITL enabled globally
         global_enabled = getattr(settings, "react_enable_hitl", False)

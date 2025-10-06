@@ -14,7 +14,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import after path is set
-from config import settings
+from config_legacy import settings
 from utils.react_strategies import ReactConfig, ReactStrategy
 
 

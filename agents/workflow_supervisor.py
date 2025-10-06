@@ -19,7 +19,7 @@ from langgraph.prebuilt import ToolNode
 
 from schemas.agent_state import SupervisorState
 from utils.llm_factory import get_llm
-from config import settings
+from config_legacy import settings
 from workflows.registry import get_workflow_registry
 from workflows.engine import WorkflowEngine
 

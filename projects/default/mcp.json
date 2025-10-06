@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "client": {
+    "retry_attempts": 3,
+    "timeout": 30.0,
+    "health_check_interval": 60.0
+  },
+  "servers": {
+    "corporate": {
+      "type": "remote",
+      "transport": "streamable_http",
+      "url": "http://localhost:8005/mcp",
+      "api_key": null,
+      "local_path": null,
+      "enabled": true,
+      "timeout": 30.0,
+      "prompts_file": "/home/mverde/src/taal/json_api/PROMPT.md",
+      "prompt_tool_association": "query_database"
+    }
+  },
+  "tools_enable_logging": true,
+  "tools_enable_reflection": false,
+  "tools_timeout_multiplier": 1.5
+}

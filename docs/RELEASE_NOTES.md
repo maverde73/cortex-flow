@@ -1,6 +1,49 @@
-# Release Notes - v0.2.0
+# Release Notes
 
-## Dynamic Agent Management System
+## v1.0 - Multi-Project Configuration System (2025-10-06)
+
+### 🎉 Major Features
+
+#### Multi-Project JSON Configuration
+- **Complete migration** from `.env`-based to JSON-based configuration
+- **Multi-project support** - Multiple isolated project environments
+- **Secrets separation** - API keys in `.env`, configuration in JSON
+- **Type safety** - Pydantic validation on all configurations
+- **Backward compatibility** - Legacy code continues to work
+
+#### New Configuration System
+- `config/` package with models, loader, and secrets management
+- `projects/{name}/` directories for isolated configurations
+- Project management CLI (`scripts/project.py`)
+- Environment variable substitution in JSON (`${VAR}` syntax)
+
+#### Configuration Files
+- `project.json` - Core project settings
+- `agents.json` - Agent configuration (models, ports, strategies)
+- `mcp.json` - MCP server configuration
+- `react.json` - ReAct pattern configuration
+- `workflows/` - Workflow templates
+
+### 📚 New Documentation
+- [Multi-Project Configuration](reference/multi-project-config.md)
+- Complete migration guide and API reference
+- CLI usage examples and best practices
+
+### 🔄 Backward Compatibility
+- `config_legacy.py` provides compatibility layer
+- All existing code works with deprecation warnings
+- Gradual migration path for developers
+
+### 🎯 Migration Benefits
+- ✅ Clean `.env` - 250+ → 83 lines (secrets only)
+- ✅ Version control - JSON configs can be committed
+- ✅ Type safety - Pydantic validation
+- ✅ Multi-environment - dev/staging/prod projects
+- ✅ Easy management - CLI tools for project operations
+
+---
+
+## v0.2.0 - Dynamic Agent Management System
 
 ### Overview
 

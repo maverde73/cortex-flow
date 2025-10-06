@@ -21,7 +21,7 @@ from utils.react_reflection import (
     ReflectionDecision
 )
 from utils.react_logger import create_react_logger, ReactLogger
-from config import settings
+from config_legacy import settings
 
 logger = logging.getLogger(__name__)
 

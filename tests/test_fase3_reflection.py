@@ -339,7 +339,7 @@ class TestReflectionIntegrationReadiness:
     @pytest.mark.fase3
     def test_reflection_can_be_disabled_globally(self):
         """Test that reflection can be disabled."""
-        from config import settings
+        from config_legacy import settings
         # Reflection should be disabled by default
         # This prevents unexpected behavior in production
         assert hasattr(settings, 'react_enable_reflection')
@@ -348,7 +348,7 @@ class TestReflectionIntegrationReadiness:
     @pytest.mark.fase3
     def test_per_agent_reflection_settings_exist(self):
         """Test that per-agent reflection settings exist in config."""
-        from config import settings
+        from config_legacy import settings
         agents = ["researcher", "analyst", "writer", "supervisor"]
         for agent in agents:
             # Check enable flag exists

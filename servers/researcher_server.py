@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage
 
 from schemas.mcp_protocol import MCPRequest, MCPResponse, HealthCheckResponse
 from agents.researcher import get_researcher_agent
-from config import settings
+from config_legacy import settings
 
 # Create FastAPI app
 app = FastAPI(

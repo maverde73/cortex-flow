@@ -1,0 +1,39 @@
+{
+  "name": "report_generation",
+  "version": "1.0",
+  "description": "Standard report generation workflow: Research → Analyze → Write",
+  "trigger_patterns": [
+    ".*report.*",
+    ".*document.*",
+    "create.*analysis.*",
+    "write.*about.*"
+  ],
+  "nodes": [
+    {
+      "id": "research",
+      "agent": "researcher",
+      "instruction": "Research comprehensive information on: {topic}",
+      "depends_on": [],
+      "timeout": 300
+    },
+    {
+      "id": "analyze",
+      "agent": "analyst",
+      "instruction": "Analyze the following research data and extract key insights:\n\n{research}",
+      "depends_on": ["research"],
+      "timeout": 180
+    },
+    {
+      "id": "write",
+      "agent": "writer",
+      "instruction": "Create a professional report based on this analysis:\n\n{analyze}",
+      "depends_on": ["analyze"],
+      "timeout": 180,
+      "template": "formal_report"
+    }
+  ],
+  "conditional_edges": [],
+  "parameters": {
+    "topic": "AI trends 2025"
+  }
+}

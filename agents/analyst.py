@@ -13,7 +13,7 @@ from langgraph.prebuilt import ToolNode
 
 from schemas.agent_state import AnalystState
 from utils.llm_factory import get_llm
-from config import settings
+from config_legacy import settings
 
 logger = logging.getLogger(__name__)
 

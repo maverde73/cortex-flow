@@ -232,7 +232,7 @@ async def initialize_registry_from_config():
     This should be called at application startup to register
     all configured agents.
     """
-    from config import settings
+    from config_legacy import settings
 
     registry = get_registry()
 

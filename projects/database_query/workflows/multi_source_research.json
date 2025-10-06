@@ -1,0 +1,54 @@
+{
+  "name": "multi_source_research",
+  "version": "1.0",
+  "description": "Multi-source research with parallel execution: Web || DB || MCP → Synthesize",
+  "trigger_patterns": [
+    "research from multiple sources",
+    "comprehensive research",
+    "multi-source.*"
+  ],
+  "nodes": [
+    {
+      "id": "web_research",
+      "agent": "researcher",
+      "instruction": "Search the web for information on: {topic}",
+      "depends_on": [],
+      "parallel_group": "sources",
+      "timeout": 300
+    },
+    {
+      "id": "database_query",
+      "agent": "mcp_tool",
+      "tool_name": "query_database",
+      "instruction": "Query database for: {topic}",
+      "depends_on": [],
+      "parallel_group": "sources",
+      "timeout": 60,
+      "params": {
+        "query_payload": {
+          "table": "{table_name}",
+          "method": "select"
+        }
+      }
+    },
+    {
+      "id": "synthesize",
+      "agent": "analyst",
+      "instruction": "Synthesize findings from multiple sources:\n\nWeb Research:\n{web_research}\n\nDatabase Data:\n{database_query}",
+      "depends_on": ["web_research", "database_query"],
+      "timeout": 180
+    },
+    {
+      "id": "summary",
+      "agent": "writer",
+      "instruction": "Create a comprehensive summary of the synthesized research:\n\n{synthesize}",
+      "depends_on": ["synthesize"],
+      "timeout": 180
+    }
+  ],
+  "conditional_edges": [],
+  "parameters": {
+    "topic": "AI agent frameworks",
+    "table_name": "research_data"
+  }
+}

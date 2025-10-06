@@ -10,7 +10,7 @@ from typing import List
 from langchain_core.tools import BaseTool
 
 from services.registry import get_registry
-from config import settings
+from config_legacy import settings
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ Tests timeout, max_iterations, error tracking, and verbose logging.
 import pytest
 import httpx
 import time
-from config import settings
+from config_legacy import settings
 
 
 class TestFase1TimeoutControl:

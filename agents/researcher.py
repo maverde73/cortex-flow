@@ -22,7 +22,7 @@ from utils.react_reflection import (
     get_reflection_config,
     ReflectionDecision
 )
-from config import settings
+from config_legacy import settings
 
 logger = logging.getLogger(__name__)
 
@@ -132,9 +132,10 @@ def create_researcher_agent():
         # Check 2: Timeout exceeded (FASE 2: use strategy timeout)
         start_time = state.get("start_time", time.time())
         elapsed = time.time() - start_time
-        if elapsed > react_config.timeout_seconds:
+        agent_react_config = get_llm(agent="researcher")[1]  # Get ReactConfig from factory
+        if elapsed > agent_react_config.timeout_seconds:
             logger.warning(
-                f"[ReAct] Timeout exceeded: {elapsed:.1f}s > {react_config.timeout_seconds}s"
+                f"[ReAct] Timeout exceeded: {elapsed:.1f}s > {agent_react_config.timeout_seconds}s"
             )
             # Optionally set early_stop_reason in state for logging
             state["early_stop_reason"] = f"Timeout after {elapsed:.1f}s"

@@ -4,7 +4,7 @@ Web research tools for gathering information from the internet.
 
 from langchain_core.tools import tool
 from typing import Optional
-from config import settings
+from config_legacy import settings
 
 
 @tool

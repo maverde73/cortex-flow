@@ -14,7 +14,7 @@ from schemas.mcp_protocol import MCPRequest, MCPResponse, HealthCheckResponse
 from agents.supervisor import get_supervisor_agent
 from services.registry import initialize_registry_from_config
 from services.health_monitor import start_health_monitoring
-from config import settings
+from config_legacy import settings
 import logging
 
 logging.basicConfig(level=logging.INFO)
