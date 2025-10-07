@@ -7,12 +7,16 @@ Executes workflow templates with support for:
 - Dependency resolution
 - MCP tool integration
 - State management
+
+Supports two execution modes:
+- "langgraph": Compile to native LangGraph StateGraph (default, recommended)
+- "custom": Use custom execution engine (legacy fallback)
 """
 
 import asyncio
 import time
 import logging
-from typing import Dict, List, Optional, Any, Set
+from typing import Dict, List, Optional, Any, Set, Literal
 from collections import defaultdict
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -32,10 +36,30 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowEngine:
-    """Executes workflow templates"""
+    """
+    Executes workflow templates.
 
-    def __init__(self):
+    Supports hybrid execution mode:
+    - "langgraph": Compile template to LangGraph StateGraph (default)
+    - "custom": Use custom execution engine
+    """
+
+    def __init__(self, mode: Literal["langgraph", "custom"] = "langgraph"):
+        """
+        Initialize WorkflowEngine.
+
+        Args:
+            mode: Execution mode
+                - "langgraph": Native LangGraph compilation (recommended)
+                - "custom": Legacy custom engine
+        """
+        self.mode = mode
         self.condition_evaluator = ConditionEvaluator()
+
+        # Lazy-load compiler to avoid circular imports
+        self._compiler = None
+
+        logger.info(f"WorkflowEngine initialized in '{mode}' mode")
 
     async def execute_workflow(
         self,
@@ -46,6 +70,9 @@ class WorkflowEngine:
         """
         Execute a workflow template.
 
+        Delegates to either LangGraph compilation or custom engine
+        based on the mode set in __init__.
+
         Args:
             template: Workflow template to execute
             user_input: User's input message
@@ -53,6 +80,115 @@ class WorkflowEngine:
 
         Returns:
             WorkflowResult with execution details
+        """
+        # Route to appropriate execution method
+        if self.mode == "langgraph":
+            return await self._execute_langgraph(template, user_input, params)
+        else:
+            return await self._execute_custom(template, user_input, params)
+
+    async def _execute_langgraph(
+        self,
+        template: WorkflowTemplate,
+        user_input: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> WorkflowResult:
+        """
+        Execute workflow using LangGraph compilation.
+
+        Benefits:
+        - Native checkpointing support
+        - Streaming via .astream()
+        - Human-in-the-loop via interrupt()
+        - LangSmith tracing
+        """
+        start_time = time.time()
+        params = params or {}
+
+        try:
+            # Lazy-load compiler
+            if self._compiler is None:
+                from workflows.langgraph_compiler import LangGraphWorkflowCompiler
+                self._compiler = LangGraphWorkflowCompiler()
+
+            # Compile template to StateGraph
+            compiled_graph = self._compiler.compile(template)
+
+            # Prepare initial state
+            initial_state = {
+                "user_input": user_input,
+                "workflow_name": template.name,
+                "workflow_params": {**template.parameters, **params},
+                "node_outputs": {},
+                "completed_nodes": [],
+                "workflow_history": [],
+                "execution_start_time": start_time
+            }
+
+            # Execute compiled graph
+            logger.info(f"🚀 Executing LangGraph workflow '{template.name}'")
+            result_state = await compiled_graph.ainvoke(initial_state)
+
+            # Extract results
+            execution_time = time.time() - start_time
+
+            # Get final output (last completed node)
+            final_output = ""
+            if result_state.get("completed_nodes"):
+                last_node = result_state["completed_nodes"][-1]
+                final_output = result_state["node_outputs"].get(last_node, "")
+
+            # Build node results from history
+            node_results = []
+            for log_entry in result_state.get("workflow_history", []):
+                if log_entry.action == "executed":
+                    node_id = log_entry.node_id
+                    node_results.append(NodeExecutionResult(
+                        node_id=node_id,
+                        agent=log_entry.agent,
+                        output=result_state["node_outputs"].get(node_id, ""),
+                        execution_time=log_entry.details.get("execution_time", 0),
+                        success=True
+                    ))
+
+            logger.info(
+                f"✅ LangGraph workflow '{template.name}' completed in {execution_time:.2f}s"
+            )
+
+            return WorkflowResult(
+                workflow_name=template.name,
+                success=not bool(result_state.get("error")),
+                final_output=final_output,
+                execution_log=result_state.get("workflow_history", []),
+                node_results=node_results,
+                total_execution_time=execution_time,
+                error=result_state.get("error")
+            )
+
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(f"❌ LangGraph workflow '{template.name}' failed: {e}")
+
+            return WorkflowResult(
+                workflow_name=template.name,
+                success=False,
+                final_output="",
+                execution_log=[],
+                node_results=[],
+                total_execution_time=execution_time,
+                error=str(e)
+            )
+
+    async def _execute_custom(
+        self,
+        template: WorkflowTemplate,
+        user_input: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> WorkflowResult:
+        """
+        Execute workflow using custom engine (legacy mode).
+
+        This is the original implementation, kept for backward compatibility.
         """
         start_time = time.time()
         params = params or {}

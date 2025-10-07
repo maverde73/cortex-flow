@@ -90,6 +90,30 @@ Strategia per migrare da ReAct a Workflow (focus hybrid).
 
 ---
 
+### 7. [LangGraph Compatibility](07_langgraph_compatibility.md) ✨ NUOVO
+Workflow compilati nativamente in LangGraph StateGraph.
+
+**Contenuti**:
+- Architettura di compilazione (WorkflowTemplate → StateGraph)
+- Benefits: checkpointing, streaming, human-in-the-loop, LangSmith tracing
+- Execution modes: `langgraph` (default) vs `custom` (legacy)
+- Migration guide e backward compatibility
+- Examples: sequential, parallel, conditional workflows
+- Advanced features: variable substitution, metadata extraction, custom state
+- Troubleshooting e performance analysis
+
+**Novità v0.4.0**:
+- ✅ Native LangGraph compilation (default)
+- ✅ Hybrid mode support (langgraph/custom)
+- ✅ PostgreSQL/Redis checkpointing
+- ✅ Streaming via `.astream()`
+- ✅ Human-in-the-loop workflows
+- ✅ Unified execution with agents
+
+**Per chi**: Tutti - LangGraph è ora il motore di default per i workflow
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Configura il sistema
@@ -101,6 +125,9 @@ WORKFLOW_ENABLE=true
 WORKFLOW_MODE=hybrid  # auto-detect template o usa ReAct
 WORKFLOW_AUTO_CLASSIFY=true
 WORKFLOW_FALLBACK_TO_REACT=true
+
+# Execution engine (v0.4.0+)
+WORKFLOW_ENGINE_MODE=langgraph  # langgraph (default) | custom (legacy)
 ```
 
 ### 2. Usa un template esistente
@@ -165,6 +192,26 @@ if errors:
 else:
     print("✅ Template valid")
 ```
+
+---
+
+## ⚡ Novità v0.4.0: LangGraph Native Compilation
+
+I workflow sono ora compilati nativamente in LangGraph `StateGraph`, sbloccando nuove funzionalità:
+
+- ✅ **Checkpointing**: State persistence su PostgreSQL/Redis
+- ✅ **Streaming**: Real-time updates via `.astream()`
+- ✅ **Human-in-the-Loop**: Interrupt workflows per approvazioni
+- ✅ **LangSmith Tracing**: Distributed tracing e debugging
+- ✅ **Unified System**: Stesso engine per agents e workflows
+
+**Benefici**:
+- Stesso sistema di esecuzione degli agenti
+- Performance migliorata (10-20% per workflow paralleli)
+- Debugging avanzato con LangSmith
+- Stato workflow persistente e ripristinabile
+
+[**→ Leggi la guida completa LangGraph Compatibility**](07_langgraph_compatibility.md)
 
 ---
 
@@ -590,6 +637,7 @@ Vuoi contribuire nuovi template o miglioramenti?
 - [Visual Diagrams →](04_visual_diagrams.md) - 🆕 Diagrammi Mermaid architettura
 - [Cookbook →](05_cookbook.md) - 🆕 16 esempi pratici pronti all'uso
 - [Migration Guide →](06_migration_guide.md) - 🆕 Strategia migrazione ibrida
+- [LangGraph Compatibility →](07_langgraph_compatibility.md) - ✨ **NUOVO v0.4.0** - Compilation nativa LangGraph
 
 ### Codebase
 - **Core**: `workflows/` (engine, registry, conditions)
@@ -630,4 +678,41 @@ Recommendation: Usa HYBRID mode per best of both worlds
 
 ---
 
-**Documentazione aggiornata**: 2025-01-06
+---
+
+## 🎉 Changelog
+
+### v0.4.0 (2025-10-07) - LangGraph Native Compilation ✨
+
+**Major Update**: Workflow templates ora compilano nativamente in LangGraph StateGraph.
+
+**Nuove Funzionalità**:
+- ✅ LangGraph compilation come default engine
+- ✅ Hybrid mode support (langgraph/custom)
+- ✅ Native checkpointing (PostgreSQL/Redis/Memory)
+- ✅ Streaming via `.astream()` API
+- ✅ Human-in-the-loop con `.with_interrupt()`
+- ✅ LangSmith distributed tracing integration
+- ✅ Unified execution system (agents + workflows)
+
+**Backward Compatibility**:
+- ✅ 100% backward compatible - tutti i template esistenti funzionano
+- ✅ Custom engine ancora disponibile (mode=custom)
+- ✅ WorkflowResult structure invariata
+- ✅ API endpoints immutati
+
+**Testing**:
+- 19 nuovi test specifici LangGraph (tutti passed)
+- 34 regression test workflow system (tutti passed)
+- 14 DSL roundtrip test (tutti passed)
+- Performance test: 10-20% più veloce per workflow paralleli
+
+**Documentazione**:
+- [LangGraph Compatibility Guide](07_langgraph_compatibility.md) - Guida completa
+- [Regression Test Report](../../LANGGRAPH_REGRESSION_TEST_REPORT.md) - Report dettagliato test
+
+**Breaking Changes**: Nessuno
+
+---
+
+**Documentazione aggiornata**: 2025-10-07

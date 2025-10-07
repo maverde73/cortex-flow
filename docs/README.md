@@ -48,7 +48,8 @@ Build structured workflows with templates and conditional routing.
 - [**MCP Integration**](workflows/03_mcp_integration.md) - Using MCP tools in workflows
 - [**Visual Diagrams**](workflows/04_visual_diagrams.md) - Visualize workflow execution
 - [**Cookbook**](workflows/05_cookbook.md) - Example workflows and patterns
-- [**Migration Guide**](workflows/06_migration_guide.md) - Migrating from ReAct to templates
+- [**Migration Guide**](workflows/06_migration_guide.md) - Hybrid ReAct/Workflow migration
+- [**LangGraph Compatibility**](workflows/07_langgraph_compatibility.md) - ✨ **NEW v0.4.0** - Native LangGraph compilation
 
 ### 💻 Development
 Contribute to Cortex-Flow or extend it with custom agents.

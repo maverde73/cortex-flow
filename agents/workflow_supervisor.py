@@ -65,14 +65,18 @@ async def create_workflow_supervisor():
 
     # Initialize workflow components
     workflow_registry = get_workflow_registry(settings.workflow_templates_dir)
-    workflow_engine = WorkflowEngine()
+
+    # Initialize engine with LangGraph mode (default)
+    # Can be overridden with WORKFLOW_ENGINE_MODE=custom in config
+    engine_mode = getattr(settings, 'workflow_engine_mode', 'langgraph')
+    workflow_engine = WorkflowEngine(mode=engine_mode)
 
     # Load templates
     if settings.workflow_enable:
         template_count = workflow_registry.load_templates()
         logger.info(
             f"Workflow system enabled: {template_count} templates loaded, "
-            f"mode={settings.workflow_mode}"
+            f"mode={settings.workflow_mode}, engine={engine_mode}"
         )
 
     # Bind tools
