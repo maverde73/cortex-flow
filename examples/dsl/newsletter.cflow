@@ -1,0 +1,30 @@
+// Cortex Flow Workflow: Newsletter Generation
+// Custom DSL syntax with Lark parser
+
+workflow newsletter {
+    version: "1.0"
+    description: "Weekly newsletter generation workflow"
+    triggers: [".*newsletter.*", ".*weekly.*summary.*"]
+
+    params {
+        topic = "AI",
+        audience = "tech professionals",
+        tone = "professional"
+    }
+
+    nodes {
+        research = researcher()
+            instruction: "Research latest trends in {topic} from the past week"
+            timeout: 300s
+
+        analyze = analyst()
+            depends_on: [research]
+            instruction: "Analyze trends and rank by relevance for {audience}: {research}"
+            timeout: 180s
+
+        write = writer()
+            depends_on: [analyze]
+            instruction: "Write engaging newsletter with tone {tone}: {analyze}"
+            timeout: 180s
+    }
+}

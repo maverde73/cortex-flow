@@ -1,0 +1,40 @@
+workflow: email_newsletter
+version: '1.0'
+description: |
+  Research weekly trends and create newsletter.
+  Params: {topic, audience, tone, length}
+triggers:
+- .*newsletter.*
+- .*weekly.*summary.*
+- send.*email.*digest.*
+nodes:
+- research_trends:
+    agent: researcher
+    instruction: |
+      Research latest trends in {topic} from the past week.
+      Focus on: news, statistics, key developments.
+    timeout: 300s
+- analyze_relevance:
+    agent: analyst
+    instruction: |
+      Analyze these trends and rank by relevance for {audience}:
+
+      {research_trends}
+
+      Provide top 5 items with importance score.
+    depends_on:
+    - research_trends
+- write_newsletter:
+    agent: writer
+    instruction: |
+      Write engaging newsletter with:
+      - Catchy subject line
+      - Introduction paragraph
+      - Top 5 trends from:
+      {analyze_relevance}
+
+      Tone: {tone}
+      Length: {length} words
+    depends_on:
+    - analyze_relevance
+    timeout: 180s

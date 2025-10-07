@@ -1,0 +1,59 @@
+// Cortex Flow Workflow DSL Grammar - Simplified
+// Lark EBNF-like syntax
+
+start: workflow
+
+workflow: "workflow" name "{" item* "}"
+
+item: version | description | triggers | params | nodes
+
+name: IDENTIFIER
+
+version: "version" ":" string
+
+description: "description" ":" string
+
+triggers: "triggers" ":" "[" string_list "]"
+string_list: string ("," string)*
+
+params: "params" "{" param_item* "}"
+param_item: IDENTIFIER "=" value ","?
+
+nodes: "nodes" "{" node+ "}"
+
+node: IDENTIFIER "=" agent "(" ")" node_attr*
+
+agent: "researcher" | "analyst" | "writer" | "mcp_tool"
+
+node_attr: depends_on | parallel_group | timeout | instruction
+
+depends_on: "depends_on" ":" "[" identifier_list "]"
+identifier_list: IDENTIFIER ("," IDENTIFIER)*
+
+parallel_group: "parallel_group" ":" string
+
+timeout: "timeout" ":" (NUMBER TIME_UNIT | NUMBER)
+TIME_UNIT: "s" | "m" | "h"
+
+instruction: "instruction" ":" string
+
+// Values
+value: string | NUMBER | BOOLEAN
+
+string: ESCAPED_STRING
+
+BOOLEAN: "true" | "false"
+
+IDENTIFIER: /[a-z_][a-z0-9_]*/
+
+// Terminals
+ESCAPED_STRING: /"(?:[^"\\]|\\.)*"/
+
+NUMBER: /\d+/
+
+// Skip whitespace and comments
+COMMENT: "//" /[^\n]*/
+
+%import common.WS
+%ignore WS
+%ignore COMMENT

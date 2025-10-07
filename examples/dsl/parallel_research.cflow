@@ -1,0 +1,28 @@
+// Multi-source parallel research workflow
+
+workflow multi_source_research {
+    version: "1.0"
+    description: "Parallel web and database research"
+    triggers: ["multi.*source", "comprehensive.*research"]
+
+    params {
+        topic = "AI frameworks"
+    }
+
+    nodes {
+        web_search = researcher()
+            parallel_group: "sources"
+            instruction: "Search web for {topic}"
+            timeout: 300s
+
+        db_query = researcher()
+            parallel_group: "sources"
+            instruction: "Query internal database for {topic}"
+            timeout: 60s
+
+        synthesize = analyst()
+            depends_on: [web_search, db_query]
+            instruction: "Combine results: {web_search} + {db_query}"
+            timeout: 180s
+    }
+}

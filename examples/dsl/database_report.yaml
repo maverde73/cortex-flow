@@ -1,0 +1,47 @@
+workflow: data_analysis_report
+version: '1.0'
+description: |
+  Data analysis workflow with MCP database query:
+  Query DB (MCP) → Analyze → Report
+triggers:
+- .*database.*analysis.*
+- query.*database.*
+- analyze.*data.*
+params:
+  query_topic: user activity
+  table_name: users
+nodes:
+- query_data:
+    agent: mcp_tool
+    tool_name: query_database
+    instruction: Query corporate database for {query_topic}
+    timeout: 60s
+    params:
+      query_payload:
+        table: '{table_name}'
+        method: select
+        columns:
+        - id
+        - name
+        - value
+        - created_at
+        limit: 100
+- analyze:
+    agent: analyst
+    instruction: |
+      Analyze the following database query results and extract insights:
+
+      {query_data}
+    depends_on:
+    - query_data
+    timeout: 180s
+- report:
+    agent: writer
+    instruction: |
+      Create a data analysis report based on these insights:
+
+      {analyze}
+    depends_on:
+    - analyze
+    timeout: 180s
+    template: data_report
