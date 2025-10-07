@@ -21,9 +21,9 @@ param_item: IDENTIFIER "=" value ","?
 
 nodes: "nodes" "{" node+ "}"
 
-node: IDENTIFIER "=" agent "(" ")" node_attr*
+node: IDENTIFIER "=" AGENT_TYPE "(" ")" node_attr*
 
-agent: "researcher" | "analyst" | "writer" | "mcp_tool"
+AGENT_TYPE: "researcher" | "analyst" | "writer" | "mcp_tool"
 
 node_attr: depends_on | parallel_group | timeout | instruction
 
@@ -32,8 +32,8 @@ identifier_list: IDENTIFIER ("," IDENTIFIER)*
 
 parallel_group: "parallel_group" ":" string
 
-timeout: "timeout" ":" (NUMBER TIME_UNIT | NUMBER)
-TIME_UNIT: "s" | "m" | "h"
+timeout: "timeout" ":" TIMEOUT_VALUE
+TIMEOUT_VALUE: /\d+[smh]?/
 
 instruction: "instruction" ":" string
 

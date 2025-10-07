@@ -55,6 +55,14 @@ logger = logging.getLogger(__name__)
 class WorkflowTransformer(Transformer):
     """Transform Lark parse tree to WorkflowTemplate"""
 
+    def start(self, children):
+        """Process start rule - return the workflow dict"""
+        return children[0] if children else {}
+
+    def item(self, children):
+        """Process item - unwrap the child"""
+        return children[0] if children else None
+
     def workflow(self, children):
         """Process workflow definition"""
         workflow_data = {
@@ -99,10 +107,8 @@ class WorkflowTransformer(Transformer):
 
     def triggers(self, children):
         """Process trigger patterns"""
-        triggers = []
-        for child in children:
-            triggers.append(self._unquote(str(child)))
-        return {"trigger_patterns": triggers}
+        # children[0] is the string_list result (already a list)
+        return {"trigger_patterns": children[0] if children else []}
 
     def string_list(self, children):
         """Process string list"""
@@ -148,13 +154,14 @@ class WorkflowTransformer(Transformer):
 
         return node_data
 
-    def agent(self, children):
-        """Process agent type"""
-        return str(children[0]) if children else None
+    def node_attr(self, children):
+        """Process node attribute - unwrap the child"""
+        return children[0] if children else None
 
     def depends_on(self, children):
         """Process dependencies"""
-        return {"depends_on": [str(c) for c in children]}
+        # children[0] is the identifier_list result (already a list)
+        return {"depends_on": children[0] if children else []}
 
     def identifier_list(self, children):
         """Process identifier list"""
@@ -166,15 +173,17 @@ class WorkflowTransformer(Transformer):
 
     def timeout(self, children):
         """Process timeout"""
-        if len(children) == 2:
-            # Number + unit
-            num = int(children[0])
-            unit = str(children[1])
-            multiplier = {'s': 1, 'm': 60, 'h': 3600}.get(unit, 1)
-            return {"timeout": num * multiplier}
+        timeout_str = str(children[0]).strip()
+
+        # Parse format like "300s", "2m", "1h", or "120"
+        if timeout_str.endswith('s'):
+            return {"timeout": int(timeout_str[:-1])}
+        elif timeout_str.endswith('m'):
+            return {"timeout": int(timeout_str[:-1]) * 60}
+        elif timeout_str.endswith('h'):
+            return {"timeout": int(timeout_str[:-1]) * 3600}
         else:
-            # Just number (seconds)
-            return {"timeout": int(children[0])}
+            return {"timeout": int(timeout_str)}
 
     def instruction(self, children):
         """Process instruction"""
@@ -227,8 +236,8 @@ class WorkflowLarkParser:
         self.parser = Lark(
             grammar,
             parser='lalr',  # Fast LALR parser
-            transformer=WorkflowTransformer()
         )
+        self.transformer = WorkflowTransformer()
 
         logger.info("Lark parser initialized")
 
@@ -263,8 +272,11 @@ class WorkflowLarkParser:
             WorkflowTemplate
         """
         try:
-            # Parse with Lark
-            workflow_data = self.parser.parse(content)
+            # Parse with Lark to get parse tree
+            tree = self.parser.parse(content)
+
+            # Apply transformer to convert tree to dict
+            workflow_data = self.transformer.transform(tree)
 
             # Convert to WorkflowTemplate
             nodes = []
