@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "client": {
+    "retry_attempts": 3,
+    "timeout": 30.0,
+    "health_check_interval": 60.0
+  },
+  "servers": {},
+  "tools_enable_logging": true,
+  "tools_enable_reflection": false,
+  "tools_timeout_multiplier": 1.5
+}

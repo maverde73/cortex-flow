@@ -1,0 +1,19 @@
+{
+  "agents": {
+    "researcher": {
+      "enabled": true,
+      "llm_provider": "openai",
+      "model": "gpt-4"
+    },
+    "analyst": {
+      "enabled": true,
+      "llm_provider": "openai",
+      "model": "gpt-4"
+    },
+    "writer": {
+      "enabled": true,
+      "llm_provider": "openai",
+      "model": "gpt-4"
+    }
+  }
+}

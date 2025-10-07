@@ -1,0 +1,11 @@
+{
+  "max_iterations": 25,
+  "timeout_seconds": 300,
+  "max_consecutive_errors": 3,
+  "enable_verbose_logging": true,
+  "log_thoughts": true,
+  "log_actions": true,
+  "log_observations": true,
+  "allow_delegation": true,
+  "enable_reflection": false
+}

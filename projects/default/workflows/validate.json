@@ -1,0 +1,19 @@
+{
+  "name": "test_workflow",
+  "description": "Test workflow",
+  "version": "1.0.0",
+  "agents": {
+    "researcher": {
+      "type": "researcher",
+      "steps": [
+        {
+          "action": "research"
+        }
+      ]
+    }
+  },
+  "routing": {
+    "start": "researcher",
+    "researcher": "END"
+  }
+}
