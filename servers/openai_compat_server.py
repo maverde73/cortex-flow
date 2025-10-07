@@ -12,7 +12,7 @@ from typing import Optional, AsyncGenerator
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, trim_messages
 
 from schemas.openai_schemas import (
     ChatCompletionRequest,
@@ -197,6 +197,20 @@ async def _handle_non_streaming_completion(
     # Convert OpenAI messages to LangChain format
     langchain_messages = adapter.openai_messages_to_langchain(request.messages)
 
+    # Trim messages if enabled
+    if getattr(settings, 'enable_message_trimming', True):
+        max_tokens = getattr(settings, 'max_conversation_tokens', 4000)
+        strategy = getattr(settings, 'trimming_strategy', 'last')
+
+        logger.debug(f"Trimming messages: max_tokens={max_tokens}, strategy={strategy}")
+
+        langchain_messages = trim_messages(
+            langchain_messages,
+            max_tokens=max_tokens,
+            strategy=strategy,
+            token_counter=token_counter.count_langchain_message_tokens
+        )
+
     # Get last user message for the task
     _, user_message = adapter.extract_system_and_user_messages(request.messages)
 
@@ -267,6 +281,20 @@ async def _handle_streaming_completion(
         try:
             # Convert messages
             langchain_messages = adapter.openai_messages_to_langchain(request.messages)
+
+            # Trim messages if enabled
+            if getattr(settings, 'enable_message_trimming', True):
+                max_tokens = getattr(settings, 'max_conversation_tokens', 4000)
+                strategy = getattr(settings, 'trimming_strategy', 'last')
+
+                logger.debug(f"Trimming messages (streaming): max_tokens={max_tokens}, strategy={strategy}")
+
+                langchain_messages = trim_messages(
+                    langchain_messages,
+                    max_tokens=max_tokens,
+                    strategy=strategy,
+                    token_counter=token_counter.count_langchain_message_tokens
+                )
 
             # Get agent
             agent = await get_supervisor_agent()

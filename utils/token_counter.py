@@ -3,11 +3,20 @@ Token Counter
 
 Utilities for counting tokens in messages and responses.
 Uses tiktoken for OpenAI-compatible token counting.
+Supports both OpenAI ChatMessage format and LangChain BaseMessage format.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Union
 from schemas.openai_schemas import ChatMessage, Usage
+
+# LangChain imports for message trimming support
+try:
+    from langchain_core.messages import BaseMessage
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_AVAILABLE = False
+    BaseMessage = None
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +111,74 @@ class TokenCounter:
             return self._approximate_string_tokens(text)
 
         return len(self.encoding.encode(text))
+
+    def count_langchain_message_tokens(self, messages: List) -> int:
+        """
+        Count tokens in LangChain BaseMessage list.
+
+        Compatible with langchain_core.messages.trim_messages().
+
+        Args:
+            messages: List of LangChain BaseMessage objects
+
+        Returns:
+            Number of tokens
+        """
+        if not messages:
+            return 0
+
+        if not LANGCHAIN_AVAILABLE:
+            # Fallback: approximate based on content length
+            return self._approximate_langchain_tokens(messages)
+
+        num_tokens = 0
+        tokens_per_message = 3  # Message overhead
+
+        for msg in messages:
+            num_tokens += tokens_per_message
+
+            # Count role/type
+            msg_type = msg.type if hasattr(msg, 'type') else 'unknown'
+            num_tokens += len(self.encoding.encode(msg_type)) if self.encoding else len(msg_type) // 4
+
+            # Count content
+            content = msg.content if hasattr(msg, 'content') else str(msg)
+            if content:
+                if self.encoding:
+                    num_tokens += len(self.encoding.encode(content))
+                else:
+                    num_tokens += len(content) // 4
+
+        # Reply priming
+        num_tokens += 3
+
+        return num_tokens
+
+    def _approximate_langchain_tokens(self, messages: List) -> int:
+        """
+        Approximate token count for LangChain messages.
+
+        Args:
+            messages: List of LangChain BaseMessage objects
+
+        Returns:
+            Approximate token count
+        """
+        total_chars = 0
+
+        for msg in messages:
+            # Type/role
+            if hasattr(msg, 'type'):
+                total_chars += len(msg.type)
+
+            # Content
+            if hasattr(msg, 'content'):
+                total_chars += len(msg.content)
+
+            # Overhead
+            total_chars += 10
+
+        return total_chars // 4
 
     def create_usage(
         self,

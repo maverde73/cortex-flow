@@ -51,6 +51,14 @@ Build structured workflows with templates and conditional routing.
 - [**Migration Guide**](workflows/06_migration_guide.md) - Hybrid ReAct/Workflow migration
 - [**LangGraph Compatibility**](workflows/07_langgraph_compatibility.md) - ✨ **NEW v0.4.0** - Native LangGraph compilation
 
+### 💬 Chatbot & API
+Use Cortex-Flow as an OpenAI-compatible chatbot with conversation memory.
+
+- [**Chatbot API Guide**](CHATBOT_API.md) - ✨ **NEW** - OpenAI-compatible chat completions
+- [**Conversation Memory**](CHATBOT_API.md#conversation-memory) - Persistent multi-turn conversations
+- [**Message Trimming**](CHATBOT_API.md#message-trimming) - Automatic context window management
+- [**LangChain Integration**](CHATBOT_API.md#langchain-integration) - Seamless LangChain compatibility
+
 ### 💻 Development
 Contribute to Cortex-Flow or extend it with custom agents.
 
@@ -87,6 +95,11 @@ Complete reference documentation for all configuration options.
 1. [Workflows Overview](workflows/README.md)
 2. [Creating Templates](workflows/01_creating_templates.md)
 3. [Cookbook](workflows/05_cookbook.md)
+
+**Using as a chatbot?**
+1. [Chatbot API Guide](CHATBOT_API.md)
+2. [Quick Start Example](CHATBOT_API.md#quick-start)
+3. [LangChain Integration](CHATBOT_API.md#langchain-integration)
 
 **Extending the system?**
 1. [Development Guide](development/README.md)

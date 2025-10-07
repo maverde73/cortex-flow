@@ -5,14 +5,16 @@ Orchestrates the multi-agent workflow by delegating tasks to specialized agents.
 This is the entry point for all user requests.
 
 The supervisor now dynamically loads tools based on available agents from the registry.
+Supports conversation memory via checkpointer (MemorySaver or PostgreSQL).
 """
 
 import time
-from typing import Literal
+from typing import Literal, Optional
 import logging
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
+from langgraph.checkpoint.memory import MemorySaver
 
 from schemas.agent_state import SupervisorState
 from utils.llm_factory import get_llm
@@ -69,6 +71,61 @@ User: "Compare LangGraph vs CrewAI"
 → write_content("Write a comparison report: {analysis}")
 
 Think step by step and use the appropriate tools to accomplish the task efficiently."""
+
+
+def get_checkpointer() -> Optional[any]:
+    """
+    Get configured checkpointer for conversation memory.
+
+    Returns:
+        Checkpointer instance (MemorySaver, PostgresSaver, etc.) or None
+
+    Supports:
+    - memory: In-memory checkpointing (development/testing)
+    - postgres: PostgreSQL persistence (production)
+    - None: Disabled (stateless mode)
+    """
+    enable_memory = getattr(settings, 'enable_conversation_memory', True)
+
+    if not enable_memory:
+        logger.info("Conversation memory disabled - supervisor will be stateless")
+        return None
+
+    checkpointer_type = getattr(settings, 'checkpointer_type', 'memory')
+
+    if checkpointer_type == 'memory':
+        logger.info("Using MemorySaver for conversation memory")
+        return MemorySaver()
+
+    elif checkpointer_type == 'postgres':
+        try:
+            from langgraph.checkpoint.postgres import PostgresSaver
+
+            postgres_url = getattr(settings, 'postgres_checkpoint_url', None)
+            if not postgres_url:
+                logger.warning(
+                    "PostgreSQL checkpointer requested but POSTGRES_CHECKPOINT_URL not set. "
+                    "Falling back to MemorySaver"
+                )
+                return MemorySaver()
+
+            logger.info(f"Using PostgresSaver for conversation memory: {postgres_url}")
+            return PostgresSaver.from_conn_string(postgres_url)
+
+        except ImportError:
+            logger.error(
+                "PostgreSQL checkpointer requested but langgraph postgres extras not installed. "
+                "Install with: pip install langgraph[postgres]. "
+                "Falling back to MemorySaver"
+            )
+            return MemorySaver()
+        except Exception as e:
+            logger.error(f"Error initializing PostgreSQL checkpointer: {e}. Falling back to MemorySaver")
+            return MemorySaver()
+
+    else:
+        logger.warning(f"Unknown checkpointer type: {checkpointer_type}. Using MemorySaver")
+        return MemorySaver()
 
 
 async def create_supervisor_agent_dynamic():
@@ -263,7 +320,15 @@ async def create_supervisor_agent_dynamic():
 
     workflow.add_edge("tools", "agent")
 
-    return workflow.compile()
+    # Get checkpointer for conversation memory
+    checkpointer = get_checkpointer()
+
+    if checkpointer:
+        logger.info("Compiling supervisor with conversation memory enabled")
+        return workflow.compile(checkpointer=checkpointer)
+    else:
+        logger.info("Compiling supervisor in stateless mode (no conversation memory)")
+        return workflow.compile()
 
 
 _supervisor_agent = None
