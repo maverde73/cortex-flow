@@ -373,7 +373,9 @@ When implementing features:
 - **[Agents Guide](docs/agents/README.md)** - ReAct agents and strategies
 - **[MCP Integration](docs/mcp/README.md)** - External tool integration
 - **[Workflows](docs/workflows/README.md)** - Template-based execution
+- **[Chatbot & API](docs/chatbot/README.md)** - ✨ **NEW** - OpenAI-compatible chatbot with conversation memory
 - **[Development Guide](docs/development/README.md)** - Contributing and testing
+- **[Test Reports](tests/reports/README.md)** - Regression tests and validation results
 - **[Configuration Reference](docs/reference/README.md)** - All settings and APIs
 
 ### External Resources

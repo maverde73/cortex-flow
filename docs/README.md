@@ -54,10 +54,11 @@ Build structured workflows with templates and conditional routing.
 ### 💬 Chatbot & API
 Use Cortex-Flow as an OpenAI-compatible chatbot with conversation memory.
 
-- [**Chatbot API Guide**](CHATBOT_API.md) - ✨ **NEW** - OpenAI-compatible chat completions
-- [**Conversation Memory**](CHATBOT_API.md#conversation-memory) - Persistent multi-turn conversations
-- [**Message Trimming**](CHATBOT_API.md#message-trimming) - Automatic context window management
-- [**LangChain Integration**](CHATBOT_API.md#langchain-integration) - Seamless LangChain compatibility
+- [**Chatbot Overview**](chatbot/README.md) - ✨ **NEW** - Chatbot documentation index
+- [**API Guide**](chatbot/api_guide.md) - OpenAI-compatible chat completions
+- [**Implementation Summary**](chatbot/implementation_summary.md) - Technical implementation details
+- [**Quick Start**](chatbot/api_guide.md#quick-start) - Get started in 5 minutes
+- [**LangChain Integration**](chatbot/api_guide.md#langchain-integration) - Seamless LangChain compatibility
 
 ### 💻 Development
 Contribute to Cortex-Flow or extend it with custom agents.
@@ -97,9 +98,9 @@ Complete reference documentation for all configuration options.
 3. [Cookbook](workflows/05_cookbook.md)
 
 **Using as a chatbot?**
-1. [Chatbot API Guide](CHATBOT_API.md)
-2. [Quick Start Example](CHATBOT_API.md#quick-start)
-3. [LangChain Integration](CHATBOT_API.md#langchain-integration)
+1. [Chatbot Overview](chatbot/README.md)
+2. [Quick Start Example](chatbot/api_guide.md#quick-start)
+3. [LangChain Integration](chatbot/api_guide.md#langchain-integration)
 
 **Extending the system?**
 1. [Development Guide](development/README.md)

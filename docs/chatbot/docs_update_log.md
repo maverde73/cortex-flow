@@ -150,3 +150,33 @@ docs/workflows/07_langgraph_compatibility.md
 ---
 
 **Documentation Status**: ✅ Complete and Ready for Production
+
+---
+
+## Documentation Reorganization (2025-10-07)
+
+### Files Moved for Better Organization
+
+All documentation has been reorganized to follow project structure guidelines:
+
+#### Root Cleanup
+- Moved all `.md` files except `README.md` and `CLAUDE.md` to appropriate directories
+- Root now contains only essential project files
+
+#### Chatbot Documentation
+Created `docs/chatbot/` directory:
+- `api_guide.md` (was: `CHATBOT_API.md` in root)
+- `implementation_summary.md` (was: `CHATBOT_IMPLEMENTATION_SUMMARY.md` in root)
+- `docs_update_log.md` (this file, was: `DOCS_UPDATED.md` in root)
+- `README.md` (new index file)
+
+#### Test Reports
+Created `tests/reports/` directory:
+- `LANGGRAPH_REGRESSION_TEST_REPORT.md` (moved from root)
+- `README.md` (new index file)
+
+### Updated References
+- `docs/README.md` - Updated all chatbot links to new paths
+- `README.md` - Added chatbot and test reports to Quick Links
+
+**Final Structure**: ✅ Clean root, organized documentation, proper indexing
