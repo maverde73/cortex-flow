@@ -1,393 +1,255 @@
 # Cortex Flow
 
-A distributed multi-agent AI system implementing the Model Context Protocol (MCP) for scalable, specialized agent collaboration.
+A distributed multi-agent AI system with a powerful web-based editor for building and managing AI workflows using the Model Context Protocol (MCP).
 
-## Overview
+## 🌟 Key Features
 
-Cortex Flow is a microservices-based AI agent ecosystem where multiple specialized agents run on independent servers and communicate via HTTP using a standardized MCP protocol. Built with LangChain, LangGraph, and FastAPI, it enables complex workflows through agent orchestration and specialization.
+### Web Application
+- **🎨 Visual Workflow Editor**: Drag-and-drop interface for building complex AI workflows
+- **🚀 Real-time Process Management**: Start, stop, and monitor agents with live status updates
+- **🧪 Testing & Debugging**: Interactive playground for testing agents and workflows
+- **📊 Project Management**: Multi-project support with isolated configurations
+- **🔌 MCP Integration**: Seamlessly connect external tools and services
 
-### Key Features
+### Multi-Agent System
+- **🤖 Specialized Agents**: Supervisor, Researcher, Analyst, Writer working in coordination
+- **🔄 ReAct Pattern**: Transparent reasoning with Thought→Action→Observation cycles
+- **📈 LangGraph Orchestration**: Stateful workflow graphs with persistent checkpointing
+- **🌐 Distributed Architecture**: HTTP-based MCP protocol for inter-agent messaging
+- **⚡ Async Performance**: Non-blocking I/O throughout the stack
+- **🔍 Full Observability**: LangSmith integration for distributed tracing
 
-- 🤖 **Multi-Agent Architecture**: Specialized agents (Supervisor, Researcher, Analyst, Writer) working in coordination
-- 🔄 **ReAct Pattern**: Transparent reasoning with Thought→Action→Observation cycles
-- 📊 **LangGraph Orchestration**: Stateful workflow graphs with persistent checkpointing
-- 🌐 **Distributed Communication**: HTTP-based MCP protocol for inter-agent messaging
-- ⚡ **Async Performance**: Non-blocking I/O throughout the stack
-- 🔍 **Full Observability**: LangSmith integration for distributed tracing
+## 🚀 Quick Start
 
-### Architecture
+### Prerequisites
+- Python 3.10+
+- Node.js 18+ and npm
+- Virtual environment tool (venv, conda, etc.)
 
-```
-┌─────────────┐
-│   Client    │
-└──────┬──────┘
-       │ HTTP
-       ▼
-┌─────────────────┐
-│   Supervisor    │ ◄─── Orchestrates workflow
-│   Agent Server  │
-└────────┬────────┘
-         │ MCP Protocol (HTTP)
-    ┌────┴─────────┬──────────┬─────────┐
-    ▼              ▼          ▼         ▼
-┌─────────┐  ┌─────────┐ ┌────────┐ ┌────────┐
-│Research │  │ Reddit  │ │Analyst │ │Writer  │
-│ Agent   │  │ Agent   │ │ Agent  │ │ Agent  │
-└─────────┘  └─────────┘ └────────┘ └────────┘
-```
+### Installation
 
-## Project Implementation Checklist
-
-### Phase 1: Foundation Setup
-
-- [ ] **Environment Configuration**
-  - [ ] Create virtual environment (`python -m venv .venv`)
-  - [ ] Copy `.env.example` to `.env`
-  - [ ] Configure API keys in `.env`:
-    - [ ] `OPENAI_API_KEY`
-    - [ ] `ANTHROPIC_API_KEY`
-    - [ ] `GOOGLE_API_KEY` (optional)
-    - [ ] `GROQ_API_KEY` (optional)
-    - [ ] `OPENROUTER_API_KEY` (optional)
-  - [ ] Install dependencies (`pip install -r requirements.txt`)
-
-- [ ] **Project Structure**
-  - [ ] Create `agents/` directory for LangGraph agent definitions
-  - [ ] Create `servers/` directory for FastAPI server implementations
-  - [ ] Create `tools/` directory for tool implementations
-  - [ ] Create `schemas/` directory for Pydantic models
-  - [ ] Create `config.py` for centralized configuration
-
-### Phase 2: Core Infrastructure
-
-- [ ] **MCP Protocol Definition**
-  - [ ] Define `MCPRequest` Pydantic model in `schemas/mcp_protocol.py`
-  - [ ] Define `MCPResponse` Pydantic model
-  - [ ] Add validation logic for protocol fields
-  - [ ] Document protocol specification
-
-- [ ] **Configuration Management**
-  - [ ] Create `Settings` class using Pydantic `BaseSettings` in `config.py`
-  - [ ] Add environment variable loading
-  - [ ] Configure LLM provider settings
-  - [ ] Add database/Redis connection settings
-  - [ ] Configure LangSmith tracing settings
-
-- [ ] **State Management**
-  - [ ] Set up PostgreSQL or Redis for production checkpointing
-  - [ ] Create checkpoint configuration
-  - [ ] Implement state schema base class
-  - [ ] Test state persistence and recovery
-
-### Phase 3: Agent Implementation
-
-- [ ] **Base Agent Components**
-  - [ ] Create base agent state TypedDict
-  - [ ] Implement base agent node (LLM invocation)
-  - [ ] Implement base tool execution node
-  - [ ] Create conditional edge logic (should_continue)
-  - [ ] Add END node routing
-
-- [ ] **Web Researcher Agent**
-  - [ ] Define `ResearcherState` in `agents/researcher.py`
-  - [ ] Implement Tavily web search tool in `tools/web_tools.py`
-  - [ ] Build LangGraph StateGraph for researcher
-  - [ ] Add specialized research prompt
-  - [ ] Create FastAPI server in `servers/researcher_server.py`
-  - [ ] Implement `/invoke` endpoint
-  - [ ] Test standalone researcher functionality
-
-- [ ] **Reddit Agent**
-  - [ ] Define `RedditState` in `agents/reddit.py`
-  - [ ] Implement Reddit API tool in `tools/social_tools.py`
-  - [ ] Build LangGraph StateGraph
-  - [ ] Add Reddit-specific prompt engineering
-  - [ ] Create FastAPI server in `servers/reddit_server.py`
-  - [ ] Implement `/invoke` endpoint
-  - [ ] Test Reddit data retrieval
-
-- [ ] **Analyst Agent**
-  - [ ] Define `AnalystState` in `agents/analyst.py`
-  - [ ] Implement data synthesis tools
-  - [ ] Build LangGraph StateGraph with analysis logic
-  - [ ] Add analytical prompt with structured output
-  - [ ] Create FastAPI server in `servers/analyst_server.py`
-  - [ ] Implement `/invoke` endpoint
-  - [ ] Test analysis capabilities
-
-- [ ] **Writer Agent**
-  - [ ] Define `WriterState` in `agents/writer.py`
-  - [ ] Build LangGraph StateGraph for content generation
-  - [ ] Add writing style prompt templates
-  - [ ] Create FastAPI server in `servers/writer_server.py`
-  - [ ] Implement `/invoke` endpoint
-  - [ ] Test report generation
-
-### Phase 4: Orchestration Layer
-
-- [ ] **Proxy Tools**
-  - [ ] Implement `web_research_proxy_tool` in `tools/proxy_tools.py`
-  - [ ] Implement `reddit_proxy_tool`
-  - [ ] Implement `analyst_proxy_tool`
-  - [ ] Implement `writer_proxy_tool`
-  - [ ] Add error handling and retry logic
-  - [ ] Add timeout configuration
-  - [ ] Implement circuit breaker pattern
-
-- [ ] **Supervisor Agent**
-  - [ ] Define `SupervisorState` in `agents/supervisor.py`
-  - [ ] Attach all proxy tools to supervisor
-  - [ ] Build orchestration LangGraph StateGraph
-  - [ ] Add planning and delegation prompt
-  - [ ] Implement multi-step workflow logic
-  - [ ] Create FastAPI server in `servers/supervisor_server.py`
-  - [ ] Implement `/invoke` endpoint
-  - [ ] Test end-to-end workflow
-
-### Phase 5: Integration & Communication
-
-- [ ] **HTTP Client Configuration**
-  - [ ] Implement shared `httpx.AsyncClient` instance
-  - [ ] Configure connection pooling
-  - [ ] Add timeout settings
-  - [ ] Implement request/response logging
-
-- [ ] **Service Discovery**
-  - [ ] Define server URLs in configuration
-  - [ ] Implement environment-based endpoint resolution
-  - [ ] Add health check endpoints to all servers
-  - [ ] Create service registry (optional for advanced setup)
-
-- [ ] **Error Handling**
-  - [ ] Implement retry logic with exponential backoff
-  - [ ] Add circuit breaker for failing services
-  - [ ] Create standardized error response format
-  - [ ] Add fallback strategies for agent failures
-
-### Phase 6: Deployment & Operations
-
-- [ ] **Containerization**
-  - [ ] Create `Dockerfile` for each agent server
-  - [ ] Use multi-stage builds for optimization
-  - [ ] Create `docker-compose.yml` for local orchestration
-  - [ ] Configure container networking
-  - [ ] Add volume mounts for development
-
-- [ ] **Observability**
-  - [ ] Configure LangSmith API key
-  - [ ] Enable tracing in all agents
-  - [ ] Implement structured logging
-  - [ ] Add performance metrics collection
-  - [ ] Create debugging dashboard
-
-- [ ] **Security**
-  - [ ] Implement API key authentication for `/invoke` endpoints
-  - [ ] Add HTTPS support for production
-  - [ ] Configure CORS policies
-  - [ ] Implement rate limiting
-  - [ ] Add input validation and sanitization
-  - [ ] Set up secrets management (HashiCorp Vault)
-
-### Phase 7: Testing & Validation
-
-- [ ] **Unit Tests**
-  - [ ] Test individual agent graph execution
-  - [ ] Test tool implementations
-  - [ ] Test MCP protocol serialization/deserialization
-  - [ ] Test state persistence and recovery
-
-- [ ] **Integration Tests**
-  - [ ] Test agent-to-agent communication
-  - [ ] Test full workflow execution
-  - [ ] Test error scenarios and recovery
-  - [ ] Test concurrent request handling
-
-- [ ] **Performance Tests**
-  - [ ] Benchmark individual agent latency
-  - [ ] Benchmark end-to-end workflow latency
-  - [ ] Test system under load
-  - [ ] Identify and optimize bottlenecks
-
-### Phase 8: Documentation & Refinement
-
-- [ ] **Technical Documentation**
-  - [ ] Document MCP protocol specification
-  - [ ] Create API documentation (OpenAPI/Swagger)
-  - [ ] Document agent roles and capabilities
-  - [ ] Create architecture diagrams
-  - [ ] Write deployment guide
-
-- [ ] **Developer Documentation**
-  - [ ] Create "Adding a New Agent" guide
-  - [ ] Document configuration options
-  - [ ] Create troubleshooting guide
-  - [ ] Add code examples and tutorials
-
-- [ ] **Production Readiness**
-  - [ ] Implement monitoring and alerting
-  - [ ] Create runbooks for common operations
-  - [ ] Set up CI/CD pipeline
-  - [ ] Configure production environment
-  - [ ] Perform security audit
-
-## Quick Start
-
-### Option 1: Local Development
-
+1. **Clone the repository**
 ```bash
-# 1. Setup environment
+git clone https://github.com/your-org/cortex-flow.git
+cd cortex-flow
+```
+
+2. **Backend Setup**
+```bash
+# Create and activate virtual environment
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 
-# 2. Configure API keys
+# Configure environment
 cp .env.example .env
-# Edit .env and add at minimum: OPENAI_API_KEY
-
-# 3. Start all agents
-./scripts/start_all.sh
-
-# 4. Test the system
-python tests/test_system.py
-
-# Or test manually with curl:
-curl -X POST http://localhost:8000/invoke \
-  -H "Content-Type: application/json" \
-  -d '{
-    "task_id": "demo-001",
-    "source_agent_id": "client",
-    "target_agent_id": "supervisor",
-    "task_description": "What is LangGraph?",
-    "context": {}
-  }'
-
-# 5. Stop all agents
-./scripts/stop_all.sh
+# Edit .env and add your API keys:
+# - OPENAI_API_KEY
+# - ANTHROPIC_API_KEY (optional)
+# - Other LLM provider keys as needed
 ```
 
-### Option 2: Docker Compose
-
+3. **Frontend Setup**
 ```bash
-# 1. Configure environment
-cp .env.example .env
-# Edit .env and add your API keys
-
-# 2a. Start all services (full profile)
-docker-compose --profile=full up --build
-
-# 2b. Or start only specific agents
-docker-compose --profile=minimal --profile=research up  # Supervisor + Researcher only
-
-# 3. Test the system (in another terminal)
-python tests/test_system.py
-
-# 4. Stop all services
-docker-compose down
+cd frontend
+npm install
+npm run build
+cd ..
 ```
 
-### Option 3: Selective Agent Deployment
-
-Start only the agents you need:
-
+4. **Start the Application**
 ```bash
-# Edit .env to enable only specific agents
-ENABLED_AGENTS=researcher,writer  # Disable analyst
+# Start the editor server (includes all services)
+python servers/editor_server.py
 
-# Start configured agents
-./scripts/start_all.sh
+# The web app will be available at http://localhost:8002
 ```
 
-### Accessing the System
-
-- **Supervisor API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
-
-Individual agents (if needed):
-- Researcher: http://localhost:8001
-- Analyst: http://localhost:8003
-- Writer: http://localhost:8004
-
-## Technology Stack
-
-- **Framework**: FastAPI (async web framework)
-- **Agent Engine**: LangGraph (stateful agent orchestration)
-- **LLM Integration**: LangChain
-- **Service Discovery**: Custom registry with health monitoring
-- **State Persistence**: PostgreSQL or Redis
-- **HTTP Client**: httpx (async)
-- **Observability**: LangSmith
-- **Containerization**: Docker & Docker Compose
-- **Configuration**: Pydantic BaseSettings
-
-## New Features 🆕
-
-### Dynamic Agent Management
-
-- **Configurable Agents**: Enable/disable agents via `.env` configuration
-- **Service Discovery**: Automatic registration and health monitoring
-- **Graceful Degradation**: System adapts when agents are unavailable
-- **Docker Profiles**: Deploy only the agents you need
-- **Retry Logic**: Automatic retry with exponential backoff
-- **Health Monitoring**: Continuous background health checks
-
-**See [AGENT_MANAGEMENT.md](AGENT_MANAGEMENT.md) for complete guide**
-
-### Key Capabilities
-
+5. **Start Individual Agents** (via Web UI or CLI)
 ```bash
-# Run only researcher and writer
-ENABLED_AGENTS=researcher,writer
+# Via Web UI: Click on agent badges in the status bar
 
-# System automatically:
-✅ Registers available agents
-✅ Updates supervisor tools dynamically
-✅ Handles agent failures gracefully
-✅ Retries with exponential backoff
-✅ Provides user-friendly error messages
+# Or via CLI:
+python servers/supervisor_server.py  # Port 8000
+python servers/researcher_server.py  # Port 8001
+python servers/analyst_server.py     # Port 8003
+python servers/writer_server.py      # Port 8004
 ```
 
-## Project Status
+## 📸 Web Application Overview
 
-🚧 **Under Development** - This project is currently in the planning/implementation phase. Follow the checklist above to track progress.
+The Cortex Flow web application provides a comprehensive interface for managing your AI workflows:
 
-## Contributing
+### Dashboard
+- System overview with real-time metrics
+- Quick access to recent projects and workflows
+- Agent status monitoring
 
-When implementing features:
+### Projects
+- Create and manage multiple projects
+- Isolated configurations per project
+- Import/export project templates
 
-1. Follow the architectural patterns in `docs/` directory
-2. Maintain async operations throughout
-3. Use Pydantic for all data validation
-4. Implement proper error handling and logging
-5. Add tests for new functionality
-6. Update this checklist as items are completed
+### Workflow Editor
+- Visual workflow designer with drag-and-drop
+- Node-based workflow creation
+- Real-time validation and testing
+- Natural language to workflow conversion
 
-## Documentation
+### Agent Playground
+- Test individual agents with custom inputs
+- View detailed execution traces
+- Debug agent interactions
 
-📚 **Complete documentation is available in the [`docs/`](docs/) directory**
+### Process Management
+- Real-time agent status monitoring
+- One-click start/stop controls
+- CPU and memory usage tracking
+- Log viewing and debugging
 
-### Quick Links
+## 🏗️ Architecture
 
-- **[Getting Started](docs/getting-started/README.md)** - Setup and first workflow
+```
+┌─────────────────────────────────────────────┐
+│           Web Application (React)           │
+│  - Visual Editor - Process Manager          │
+│  - Testing Tools - Project Management       │
+└─────────────────┬───────────────────────────┘
+                  │ REST API
+                  ▼
+┌─────────────────────────────────────────────┐
+│         Editor Server (FastAPI)             │
+│  - API Gateway    - Workflow Engine         │
+│  - AI Service     - Process Management      │
+└─────────────────┬───────────────────────────┘
+                  │ MCP Protocol
+    ┌─────────────┴──────────────┬────────────┐
+    ▼                            ▼            ▼
+┌──────────┐            ┌──────────┐  ┌──────────┐
+│Supervisor│            │Researcher│  │ Analyst  │
+│  Agent   │ ◄────────► │  Agent   │  │  Agent   │
+└──────────┘            └──────────┘  └──────────┘
+                               ▲            ▲
+                               └────┬───────┘
+                                    ▼
+                              ┌──────────┐
+                              │  Writer  │
+                              │  Agent   │
+                              └──────────┘
+```
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the `/docs` directory:
+
+- **[Getting Started Guide](docs/getting-started/README.md)** - Installation and setup
+- **[Web Application Guide](docs/web-app/README.md)** - Using the web interface
 - **[Architecture Overview](docs/architecture/README.md)** - System design and patterns
-- **[Agents Guide](docs/agents/README.md)** - ReAct agents and strategies
-- **[MCP Integration](docs/mcp/README.md)** - External tool integration
-- **[Workflows](docs/workflows/README.md)** - Template-based execution
-- **[Chatbot & API](docs/chatbot/README.md)** - ✨ **NEW** - OpenAI-compatible chatbot with conversation memory
-- **[Development Guide](docs/development/README.md)** - Contributing and testing
-- **[Test Reports](tests/reports/README.md)** - Regression tests and validation results
-- **[Configuration Reference](docs/reference/README.md)** - All settings and APIs
+- **[Agent Development](docs/agents/README.md)** - Creating custom agents
+- **[MCP Integration](docs/mcp/README.md)** - Connecting external tools
+- **[API Reference](docs/api/README.md)** - Complete API documentation
 
-### External Resources
+## 🧪 Testing
 
-- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Model Context Protocol](https://spec.modelcontextprotocol.io/)
+### Run Tests
+```bash
+# Backend tests
+pytest tests/
 
-## License
+# Frontend tests
+cd frontend
+npm test
+```
 
-[Add license information]
+### Test a Workflow
+1. Open http://localhost:8002 in your browser
+2. Navigate to **Testing** → **Workflow Debugger**
+3. Select a workflow and provide input
+4. Click **Execute** to see step-by-step execution
 
-## Support
+## 🛠️ Development
 
-[Add support/contact information]
+### Project Structure
+```
+cortex-flow/
+├── frontend/           # React TypeScript web application
+│   ├── src/
+│   │   ├── components/ # React components
+│   │   ├── pages/      # Page components
+│   │   ├── services/   # API services
+│   │   └── types/      # TypeScript types
+├── agents/            # LangGraph agent definitions
+├── servers/           # FastAPI server implementations
+├── tools/             # Agent tools and integrations
+├── schemas/           # Pydantic models and schemas
+├── workflows/         # Workflow engine and templates
+├── utils/             # Utility functions and helpers
+├── projects/          # Project configurations and data
+└── docs/              # Documentation
+```
+
+### Adding a New Agent
+1. Create agent definition in `agents/your_agent.py`
+2. Create server in `servers/your_agent_server.py`
+3. Add to ProcessManager config in `utils/process_manager.py`
+4. Update documentation
+
+### Contributing
+Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## 🔧 Configuration
+
+### Environment Variables
+Create a `.env` file based on `.env.example`:
+
+```env
+# LLM Providers
+OPENAI_API_KEY=your-key-here
+ANTHROPIC_API_KEY=your-key-here
+
+# Optional Providers
+GOOGLE_API_KEY=your-key-here
+GROQ_API_KEY=your-key-here
+OPENROUTER_API_KEY=your-key-here
+
+# LangSmith Tracing (optional)
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your-key-here
+LANGCHAIN_PROJECT=cortex-flow
+
+# MCP Servers (optional)
+MCP_SERVERS='{"filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]}}'
+```
+
+### Port Configuration
+Default ports for services:
+- Editor Server: 8002
+- Supervisor Agent: 8000
+- Researcher Agent: 8001
+- Analyst Agent: 8003
+- Writer Agent: 8004
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Support
+
+- **Issues**: [GitHub Issues](https://github.com/your-org/cortex-flow/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-org/cortex-flow/discussions)
+- **Documentation**: [Full Documentation](docs/README.md)
+
+## 🙏 Acknowledgments
+
+Built with:
+- [LangChain](https://langchain.com/) & [LangGraph](https://github.com/langchain-ai/langgraph)
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [React](https://react.dev/) & [TypeScript](https://www.typescriptlang.org/)
+- [Model Context Protocol](https://modelcontextprotocol.io/)
+- [TailwindCSS](https://tailwindcss.com/)
+
+---
+
+**Cortex Flow** - Empowering AI workflows through intelligent agent orchestration 🚀

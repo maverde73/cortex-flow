@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -26,6 +27,7 @@ from workflows.dsl.generator import WorkflowDSLGenerator
 from schemas.workflow_schemas import WorkflowTemplate
 from servers.ai_service import AIService
 from utils.model_registry import MODEL_REGISTRY
+from utils.process_manager import ProcessManager, ProcessInfo
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -60,6 +62,10 @@ PROJECTS_DIR.mkdir(exist_ok=True)
 
 MCP_LIBRARY_DIR = Path(__file__).parent.parent / "mcp_library"
 MCP_LIBRARY_DIR.mkdir(exist_ok=True)
+
+# Initialize Process Manager
+PROJECT_ROOT = Path(__file__).parent.parent
+process_manager = ProcessManager(PROJECT_ROOT)
 
 
 # ============================================================================
@@ -1297,7 +1303,10 @@ async def invoke_agent(request: AgentInvokeRequest):
         start_time = time.time()
 
         # Load project config to get agent details
-        agents_config = _load_agents_config(request.project_name)
+        project_dir = get_project_dir(request.project_name)
+        agents_file = project_dir / "agents.json"
+        agents_config = read_json_file(agents_file)
+
         if not agents_config or request.agent_name not in agents_config.get("agents", {}):
             raise HTTPException(
                 status_code=404,
@@ -1327,7 +1336,7 @@ async def invoke_agent(request: AgentInvokeRequest):
 
         # Invoke agent
         async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(agent_url, json=mcp_request.dict())
+            response = await client.post(agent_url, json=mcp_request.model_dump(mode='json'))
             response.raise_for_status()
             mcp_response = MCPResponse(**response.json())
 
@@ -1406,6 +1415,14 @@ async def execute_workflow(request: WorkflowExecuteRequest):
 
         workflow = WorkflowTemplate(**workflow_data)
 
+        # Load project-specific MCP configuration before execution
+        try:
+            from utils.mcp_registry import initialize_mcp_registry_from_project
+            await initialize_mcp_registry_from_project(request.project_name)
+            logger.info(f"✅ MCP config loaded for project '{request.project_name}'")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load MCP config for project '{request.project_name}': {e}")
+
         # Execute workflow
         engine = WorkflowEngine(mode="langgraph")
         result = await engine.execute_workflow(
@@ -1420,25 +1437,39 @@ async def execute_workflow(request: WorkflowExecuteRequest):
         steps = []
         for i, log_entry in enumerate(result.execution_log):
             step_type = "action" if log_entry.action == "executing" else "observation"
+            # Handle timestamp - could be float or datetime
+            ts = log_entry.timestamp
+            if hasattr(ts, 'timestamp'):
+                ts = ts.timestamp()
+
+            # Generate content from action and details
+            content = f"{log_entry.action} node '{log_entry.node_id}'"
+            if log_entry.details:
+                if 'error' in log_entry.details:
+                    content = f"Error: {log_entry.details['error']}"
+                elif 'output' in log_entry.details:
+                    content = str(log_entry.details['output'])[:500]  # Limit length
+
             steps.append(ExecutionStep(
                 step_type=step_type,
                 agent=log_entry.agent,
                 node_id=log_entry.node_id,
                 iteration=i + 1,
-                timestamp=log_entry.timestamp.timestamp(),
-                content=log_entry.message,
+                timestamp=ts,
+                content=content,
                 metadata=log_entry.details
             ))
 
+        # Map WorkflowResult to ExecutionResult
         return ExecutionResult(
-            status=result.status,
+            status="success" if result.success else "error",
             result=result.final_output,
-            error=result.error_message,
+            error=result.error,
             execution_time=execution_time,
             steps=steps,
             metadata={
                 "workflow": request.workflow_name,
-                "total_nodes": result.total_nodes_executed,
+                "total_execution_time": result.total_execution_time,
                 "node_results": [
                     {"node_id": nr.node_id, "agent": nr.agent, "time": nr.execution_time}
                     for nr in result.node_results
@@ -1462,7 +1493,11 @@ async def check_agent_health(agent_name: str, project_name: str = "default"):
     try:
         import httpx
 
-        agents_config = _load_agents_config(project_name)
+        # Load agent config
+        project_dir = get_project_dir(project_name)
+        agents_file = project_dir / "agents.json"
+        agents_config = read_json_file(agents_file)
+
         if not agents_config or agent_name not in agents_config.get("agents", {}):
             raise HTTPException(status_code=404, detail="Agent not found")
 
@@ -1484,7 +1519,7 @@ async def check_agent_health(agent_name: str, project_name: str = "default"):
         return {
             "agent": agent_name,
             "status": "unhealthy",
-            "enabled": agent_config.get("enabled", False),
+            "enabled": agent_config.get("enabled", False) if 'agent_config' in locals() else False,
             "error": "Server not reachable"
         }
     except Exception as e:
@@ -1839,6 +1874,147 @@ async def validate_api_key(provider: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to validate API key: {str(e)}"
+        )
+
+
+# ============================================================================
+# Process Management
+# ============================================================================
+
+class ProcessStartRequest(BaseModel):
+    """Request to start a process."""
+    name: str
+
+
+class ProcessLogsResponse(BaseModel):
+    """Response with process logs."""
+    name: str
+    logs: List[str]
+
+
+@app.get("/api/processes/status", response_model=List[ProcessInfo], tags=["processes"])
+async def get_processes_status():
+    """Get status of all agents and processes."""
+    try:
+        agents_status = process_manager.get_all_agents_status()
+        return agents_status
+    except Exception as e:
+        logger.error(f"Error getting process status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get process status: {str(e)}"
+        )
+
+
+@app.get("/api/processes/{process_name}/status", response_model=ProcessInfo, tags=["processes"])
+async def get_process_status(process_name: str):
+    """Get status of a specific process."""
+    try:
+        return process_manager.get_agent_status(process_name)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error getting process status for {process_name}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get process status: {str(e)}"
+        )
+
+
+@app.post("/api/processes/start", response_model=ProcessInfo, tags=["processes"])
+async def start_process(request: ProcessStartRequest):
+    """Start a process (agent)."""
+    try:
+        return process_manager.start_agent(request.name)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error starting process {request.name}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start process: {str(e)}"
+        )
+
+
+@app.post("/api/processes/{process_name}/stop", response_model=ProcessInfo, tags=["processes"])
+async def stop_process(process_name: str):
+    """Stop a process (agent)."""
+    try:
+        return process_manager.stop_agent(process_name)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error stopping process {process_name}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to stop process: {str(e)}"
+        )
+
+
+@app.post("/api/processes/{process_name}/restart", response_model=ProcessInfo, tags=["processes"])
+async def restart_process(process_name: str):
+    """Restart a process (agent)."""
+    try:
+        return process_manager.restart_agent(process_name)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error restarting process {process_name}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to restart process: {str(e)}"
+        )
+
+
+@app.post("/api/processes/start-all", response_model=List[ProcessInfo], tags=["processes"])
+async def start_all_processes():
+    """Start all agents."""
+    try:
+        return process_manager.start_all_agents()
+    except Exception as e:
+        logger.error(f"Error starting all processes: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start all processes: {str(e)}"
+        )
+
+
+@app.post("/api/processes/stop-all", response_model=List[ProcessInfo], tags=["processes"])
+async def stop_all_processes():
+    """Stop all agents."""
+    try:
+        return process_manager.stop_all_agents()
+    except Exception as e:
+        logger.error(f"Error stopping all processes: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to stop all processes: {str(e)}"
+        )
+
+
+@app.get("/api/processes/{process_name}/logs", response_model=ProcessLogsResponse, tags=["processes"])
+async def get_process_logs(process_name: str, lines: int = 50):
+    """Get last N lines from a process log file."""
+    try:
+        logs = process_manager.get_logs(process_name, lines)
+        return ProcessLogsResponse(name=process_name, logs=logs)
+    except Exception as e:
+        logger.error(f"Error getting logs for {process_name}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get logs: {str(e)}"
         )
 
 

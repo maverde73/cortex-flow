@@ -7,6 +7,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../store/useStore';
 import { api } from '../services/api';
+import { ProcessStatusBar } from './ProcessStatusBar';
 
 interface NavItem {
   name: string;
@@ -190,8 +191,11 @@ export function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-auto">
+          <Outlet />
+        </div>
+        <ProcessStatusBar />
       </main>
     </div>
   );

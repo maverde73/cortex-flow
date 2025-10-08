@@ -122,21 +122,33 @@ class WorkflowEngine:
                 "node_outputs": {},
                 "completed_nodes": [],
                 "workflow_history": [],
-                "execution_start_time": start_time
+                "execution_start_time": start_time,
+                "node_retry_counts": {},
+                "max_retries": 3
             }
+
+            logger.debug(f"📋 Initial state prepared: {list(initial_state.keys())}")
+            logger.debug(f"   user_input: {user_input[:100]}...")
+            logger.debug(f"   workflow_params: {initial_state['workflow_params']}")
 
             # Execute compiled graph
             logger.info(f"🚀 Executing LangGraph workflow '{template.name}'")
             result_state = await compiled_graph.ainvoke(initial_state)
+            logger.info(f"🏁 LangGraph execution completed")
 
             # Extract results
             execution_time = time.time() - start_time
+
+            logger.debug(f"📊 Result state keys: {list(result_state.keys())}")
+            logger.debug(f"   completed_nodes: {result_state.get('completed_nodes', [])}")
+            logger.debug(f"   node_outputs keys: {list(result_state.get('node_outputs', {}).keys())}")
 
             # Get final output (last completed node)
             final_output = ""
             if result_state.get("completed_nodes"):
                 last_node = result_state["completed_nodes"][-1]
                 final_output = result_state["node_outputs"].get(last_node, "")
+                logger.debug(f"   final_output from node '{last_node}': {len(final_output)} chars")
 
             # Build node results from history
             node_results = []
@@ -152,7 +164,8 @@ class WorkflowEngine:
                     ))
 
             logger.info(
-                f"✅ LangGraph workflow '{template.name}' completed in {execution_time:.2f}s"
+                f"✅ LangGraph workflow '{template.name}' completed in {execution_time:.2f}s "
+                f"({len(node_results)} nodes executed)"
             )
 
             return WorkflowResult(

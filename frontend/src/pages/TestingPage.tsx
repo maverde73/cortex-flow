@@ -258,7 +258,7 @@ function WorkflowDebugger({ projectName }: WorkflowDebuggerProps) {
   // Fetch workflows
   const { data: workflows, isLoading } = useQuery({
     queryKey: ['workflows', projectName],
-    queryFn: () => api.getWorkflows(projectName),
+    queryFn: () => api.listWorkflows(projectName),
   });
 
   // Execute workflow mutation

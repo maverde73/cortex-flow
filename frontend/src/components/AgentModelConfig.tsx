@@ -61,6 +61,48 @@ export function AgentModelConfig({
     return '🤖';
   };
 
+  // Agent descriptions
+  const getAgentDescription = (name: string) => {
+    if (name.includes('supervisor')) {
+      return {
+        role: 'Orchestrator Agent',
+        description: 'Coordinates multiple specialized agents to solve complex tasks. Breaks down user requests into steps and delegates to appropriate specialists (researcher, analyst, writer).',
+        capabilities: ['Task decomposition', 'Agent delegation', 'Result synthesis', 'Multi-step workflow coordination'],
+        tools: ['research_web', 'analyze_data', 'write_content', 'MCP tools (optional)']
+      };
+    }
+    if (name.includes('research')) {
+      return {
+        role: 'Web Research Specialist',
+        description: 'Finds accurate, up-to-date information from the internet using advanced search tools. Implements ReAct pattern with reflection for quality assurance.',
+        capabilities: ['Web search', 'Source identification', 'Information extraction', 'Self-reflection on research quality'],
+        tools: ['tavily_search (web search API)']
+      };
+    }
+    if (name.includes('analyst')) {
+      return {
+        role: 'Data Analysis Specialist',
+        description: 'Analyzes and synthesizes information from multiple sources. Identifies patterns, extracts insights, and organizes data logically.',
+        capabilities: ['Pattern recognition', 'Insight extraction', 'Information filtering', 'Gap detection', 'Structured organization'],
+        tools: ['No external tools - pure analysis']
+      };
+    }
+    if (name.includes('writer')) {
+      return {
+        role: 'Professional Writing Specialist',
+        description: 'Creates well-structured, professional written content. Includes self-reflection capability for iterative quality improvement.',
+        capabilities: ['Report writing', 'Content structuring', 'Markdown formatting', 'Style consistency', 'Self-refinement loop'],
+        tools: ['No external tools - pure writing']
+      };
+    }
+    return {
+      role: 'AI Agent',
+      description: 'Specialized AI agent for task execution.',
+      capabilities: [],
+      tools: []
+    };
+  };
+
   return (
     <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
       {/* Header */}
@@ -124,6 +166,38 @@ export function AgentModelConfig({
       {/* Expanded Configuration */}
       {isExpanded && (
         <div className="p-4 space-y-4 border-t border-gray-200">
+          {/* Agent Description Card */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-900 mb-2">{getAgentDescription(agentName).role}</h4>
+            <p className="text-sm text-blue-800 mb-3">{getAgentDescription(agentName).description}</p>
+
+            {getAgentDescription(agentName).capabilities.length > 0 && (
+              <div className="mb-3">
+                <div className="text-xs font-semibold text-blue-900 mb-1">Capabilities:</div>
+                <div className="flex flex-wrap gap-1">
+                  {getAgentDescription(agentName).capabilities.map((cap, idx) => (
+                    <span key={idx} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                      {cap}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {getAgentDescription(agentName).tools.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold text-blue-900 mb-1">Tools:</div>
+                <div className="flex flex-wrap gap-1">
+                  {getAgentDescription(agentName).tools.map((tool, idx) => (
+                    <span key={idx} className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded font-mono">
+                      {tool}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Model Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>

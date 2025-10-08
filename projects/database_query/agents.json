@@ -7,7 +7,7 @@
       "enabled": true,
       "host": "localhost",
       "port": 8000,
-      "model": "openrouter/meta-llama/llama-3.3-70b-instruct",
+      "model": "openrouter/deepseek/deepseek-r1",
       "react_strategy": "balanced",
       "temperature": 0.5,
       "max_iterations": 15,

@@ -2,8 +2,8 @@
   "enabled": true,
   "client": {
     "retry_attempts": 3,
-    "timeout": 60.0,
-    "health_check_interval": 60.0
+    "timeout": 60,
+    "health_check_interval": 60
   },
   "servers": {
     "corporate": {
@@ -13,13 +13,23 @@
       "api_key": null,
       "local_path": null,
       "enabled": true,
-      "timeout": 60.0,
+      "timeout": 60,
       "prompts_file": "/home/mverde/src/taal/mcp-servers/cortex-flow/projects/database_query/PROMPT_CONDENSED.md",
       "prompt_tool_association": "json_query_sse",
       "description": "Corporate database query tool - Converts natural language to JSON queries for PostgreSQL database with employees, projects, certifications, assessments, and more."
+    },
+    "query-mcp": {
+      "type": "remote",
+      "transport": "streamable_http",
+      "url": "http://localhost:8005/mcp",
+      "api_key": null,
+      "local_path": null,
+      "command": null,
+      "enabled": true,
+      "timeout": 60
     }
   },
   "tools_enable_logging": true,
   "tools_enable_reflection": false,
-  "tools_timeout_multiplier": 2.0
+  "tools_timeout_multiplier": 2
 }

@@ -1010,3 +1010,75 @@ async def initialize_mcp_registry_from_config():
         f"MCP Registry initialized: {healthy_count}/{len(all_servers)} servers healthy, "
         f"{total_tools} tools available"
     )
+
+
+async def initialize_mcp_registry_from_project(project_name: str):
+    """
+    Initialize MCP registry from a project's mcp.json configuration.
+
+    This loads project-specific MCP servers that can be used in workflows.
+
+    Args:
+        project_name: Name of the project to load MCP config from
+
+    Raises:
+        FileNotFoundError: If project's mcp.json doesn't exist
+        Exception: If MCP registration fails
+    """
+    from pathlib import Path
+    import json
+
+    registry = get_mcp_registry()
+    mcp_config_path = Path("projects") / project_name / "mcp.json"
+
+    if not mcp_config_path.exists():
+        logger.warning(f"No mcp.json found for project '{project_name}'")
+        return
+
+    # Load mcp.json
+    with open(mcp_config_path, 'r', encoding='utf-8') as f:
+        mcp_data = json.load(f)
+
+    if not mcp_data.get("enabled", True):
+        logger.info(f"MCP disabled for project '{project_name}'")
+        return
+
+    servers_config = mcp_data.get("servers", {})
+
+    for server_name, server_config in servers_config.items():
+        try:
+            # Skip if server already registered
+            existing = await registry.get_server_config(server_name)
+            if existing:
+                logger.debug(f"MCP server '{server_name}' already registered, skipping")
+                continue
+
+            config = MCPServerConfig(
+                name=server_name,
+                server_type=MCPServerType(server_config.get('type', 'remote')),
+                transport=MCPTransportType(server_config.get('transport', 'streamable_http')),
+                url=server_config.get('url'),
+                api_key=server_config.get('api_key'),
+                local_path=server_config.get('local_path'),
+                enabled=server_config.get('enabled', True),
+                timeout=server_config.get('timeout', 30.0),
+                prompts_file=server_config.get('prompts_file'),
+                prompt_tool_association=server_config.get('prompt_tool_association')
+            )
+
+            await registry.register_server(config)
+            logger.info(f"✅ Registered MCP server '{server_name}' from project '{project_name}'")
+
+        except Exception as e:
+            logger.error(f"Error registering MCP server '{server_name}' from project '{project_name}': {e}")
+
+    # Log summary
+    all_servers = await registry.get_all_servers()
+    project_servers = [s for s in all_servers.values() if s.name in servers_config]
+    healthy_count = sum(1 for s in project_servers if s.status == "healthy")
+    total_tools = sum(s.tool_count for s in project_servers if s.status == "healthy")
+
+    logger.info(
+        f"Project '{project_name}' MCP initialized: {healthy_count}/{len(project_servers)} servers healthy, "
+        f"{total_tools} tools available"
+    )

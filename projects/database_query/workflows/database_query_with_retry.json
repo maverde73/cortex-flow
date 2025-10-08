@@ -11,38 +11,46 @@
   "nodes": [
     {
       "id": "generate_query",
-      "agent": "supervisor",
-      "instruction": "Convert natural language request to JSON database query.\n\nUser request: {user_request}\n\n{% if check_result %}PREVIOUS ATTEMPT FAILED - AUTO-CORRECTING:\n❌ Failed query: {generate_query}\n❌ Error message: {check_result}\n\n🔧 ANALYZE THE ERROR:\n- Check if table name exists in schema\n- Check if column names are correct\n- Verify join syntax uses valid FK relationships\n- Ensure enum values match exactly (case-sensitive)\n- Fix any syntax errors\n\nGenerate CORRECTED JSON query.{% else %}FIRST ATTEMPT - Generate query from scratch:{% endif %}\n\n## Database Schema (Essential Tables)\n\n**employees**: id, first_name, last_name, email, department_id, position, manager_id, is_active\n**departments**: id, department_name, department_code, manager_id, is_active\n**projects**: id, project_name, client_name, start_date, end_date, budget, status, pm_id\n**project_assignments**: id, project_id, employee_id, role_in_project, allocation_percentage, is_active\n**certifications**: id, name, category, level, provider, is_active\n**employee_certifications**: id, employee_id, certification_id, certification_name, issue_date, expiry_date, is_active\n**assessments**: id, employee_id, assessment_date, overall_score, technical_score, status\n**skills**: id, Skill, is_active\n**employee_skills**: id, employee_id, skill_id, proficiency_level, years_experience\n\n## Foreign Keys (Valid Joins)\n- employees.department_id → departments.id\n- employees.manager_id → employees.id\n- employee_certifications.employee_id → employees.id\n- employee_certifications.certification_id → certifications.id\n- project_assignments.project_id → projects.id\n- project_assignments.employee_id → employees.id\n- projects.pm_id → employees.id\n\n## JSON Query Format\n\n```json\n{\n  \"table\": \"table_name\",\n  \"select\": [\"field1\", \"field2\"],\n  \"where\": {\"field\": \"value\"},\n  \"join\": [{\"table\": \"other_table\", \"first\": \"t1.col\", \"second\": \"t2.col\"}],\n  \"orderBy\": \"field\",\n  \"limit\": 10\n}\n```\n\n## Common Operations\n- WHERE: `\"where\": {\"field\": \"value\"}` or `\"where\": {\"field\": {\"operator\": \">\", \"value\": 100}}`\n- IN: `\"whereIn\": {\"field\": [\"val1\", \"val2\"]}`\n- LIKE: `\"whereLike\": {\"field\": \"pattern%\"}`\n- COUNT: `\"count\": \"*\"` or `\"count\": {\"alias\": \"field\"}`\n- GROUP BY: `\"groupBy\": \"field\"` or `\"groupBy\": [\"field1\", \"field2\"]`\n\n## Examples\n\n1. Simple: `{\"table\": \"employees\", \"select\": [\"*\"], \"where\": {\"is_active\": true}}`\n2. Join: `{\"table\": \"employees\", \"select\": [\"employees.first_name\", \"departments.department_name\"], \"join\": [{\"table\": \"departments\", \"first\": \"employees.department_id\", \"second\": \"departments.id\"}]}`\n3. Aggregate: `{\"table\": \"employees\", \"count\": {\"total\": \"*\"}, \"groupBy\": \"department_id\"}`\n\n## CRITICAL RULES\n1. Use EXACT table and column names from schema above\n2. Only join tables with FK relationships shown above\n3. PostgreSQL syntax only\n4. SELECT operations only (no INSERT/UPDATE/DELETE)\n\nGenerate ONLY the JSON query object, no explanations.",
+      "agent": "analyst",
+      "instruction": "Convert natural language request to JSON database query.\n\nUser request: {user_input}\n\n{% if check_result %}PREVIOUS ATTEMPT FAILED - AUTO-CORRECTING:\n❌ Failed query: {generate_query}\n❌ Error message: {check_result}\n\n🔧 ANALYZE THE ERROR:\n- Check if table name exists in schema\n- Check if column names are correct\n- Verify join syntax uses valid FK relationships\n- Ensure enum values match exactly (case-sensitive)\n- Fix any syntax errors\n\nGenerate CORRECTED JSON query.{% else %}FIRST ATTEMPT - Generate query from scratch:{% endif %}\n\n## Database Schema (Essential Tables)\n\n**employees**: id, first_name, last_name, email, department_id, position, manager_id, is_active\n**departments**: id, department_name, department_code, manager_id, is_active\n**projects**: id, project_name, client_name, start_date, end_date, budget, status, pm_id\n**project_assignments**: id, project_id, employee_id, role_in_project, allocation_percentage, is_active\n**certifications**: id, name, category, level, provider, is_active\n**employee_certifications**: id, employee_id, certification_id, certification_name, issue_date, expiry_date, is_active\n**assessments**: id, employee_id, assessment_date, overall_score, technical_score, status\n**skills**: id, Skill, is_active\n**employee_skills**: id, employee_id, skill_id, proficiency_level, years_experience\n\n## Foreign Keys (Valid Joins)\n- employees.department_id → departments.id\n- employees.manager_id → employees.id\n- employee_certifications.employee_id → employees.id\n- employee_certifications.certification_id → certifications.id\n- project_assignments.project_id → projects.id\n- project_assignments.employee_id → employees.id\n- projects.pm_id → employees.id\n\n## JSON Query Format\n\n```json\n{\n  \"table\": \"table_name\",\n  \"select\": [\"field1\", \"field2\"],\n  \"where\": {\"field\": \"value\"},\n  \"join\": [{\"table\": \"other_table\", \"first\": \"t1.col\", \"second\": \"t2.col\"}],\n  \"orderBy\": \"field\",\n  \"limit\": 10\n}\n```\n\n## Common Operations\n- WHERE: `\"where\": {\"field\": \"value\"}` or `\"where\": {\"field\": {\"operator\": \">\", \"value\": 100}}`\n- IN: `\"whereIn\": {\"field\": [\"val1\", \"val2\"]}`\n- LIKE: `\"whereLike\": {\"field\": \"pattern%\"}`\n- COUNT: `\"count\": \"*\"` or `\"count\": {\"alias\": \"field\"}`\n- GROUP BY: `\"groupBy\": \"field\"` or `\"groupBy\": [\"field1\", \"field2\"]`\n\n## Examples\n\n1. Simple: `{\"table\": \"employees\", \"select\": [\"*\"], \"where\": {\"is_active\": true}}`\n2. Join: `{\"table\": \"employees\", \"select\": [\"employees.first_name\", \"departments.department_name\"], \"join\": [{\"table\": \"departments\", \"first\": \"employees.department_id\", \"second\": \"departments.id\"}]}`\n3. Aggregate: `{\"table\": \"employees\", \"count\": {\"total\": \"*\"}, \"groupBy\": \"department_id\"}`\n\n## CRITICAL RULES\n1. Use EXACT table and column names from schema above\n2. Only join tables with FK relationships shown above\n3. PostgreSQL syntax only\n4. SELECT operations only (no INSERT/UPDATE/DELETE)\n\n## OUTPUT FORMAT - CRITICAL! READ CAREFULLY!\n\nYou MUST output ONLY valid, complete JSON in this EXACT format:\n\n{\"query_payload\": {\"table\": \"TABLE_NAME\", \"select\": [\"FIELD1\", \"FIELD2\"]}}\n\nIMPORTANT RULES:\n1. Output MUST be valid JSON (use a JSON validator mentally before responding)\n2. ALWAYS include the \"query_payload\" wrapper\n3. ALWAYS include complete arrays with square brackets: [\"*\"] NOT just :\n4. DO NOT use markdown code blocks (```json or ```)\n5. DO NOT add any text before or after the JSON\n6. DO NOT truncate or leave incomplete values\n\nEXAMPLES OF CORRECT OUTPUT:\n\nList all employees:\n{\"query_payload\": {\"table\": \"employees\", \"select\": [\"*\"]}}\n\nList specific fields:\n{\"query_payload\": {\"table\": \"employees\", \"select\": [\"first_name\", \"last_name\", \"email\"]}}\n\nWith WHERE clause:\n{\"query_payload\": {\"table\": \"employees\", \"select\": [\"*\"], \"where\": {\"is_active\": true}}}\n\nEXAMPLES OF WRONG OUTPUT (DO NOT DO THIS):\n❌ {\"query_payload\": {\"table\": \"employees\", \"select\":}}\n❌ ```json\n{\"query_payload\": {\"table\": \"employees\", \"select\": [\"*\"]}}\n```\n❌ {\"table\": \"employees\", \"select\": [\"*\"]}\n\nGenerate ONLY the complete, valid JSON with query_payload wrapper.",
       "depends_on": [],
       "timeout": 120
     },
     {
       "id": "execute_query",
       "agent": "mcp_tool",
-      "tool_name": "json_query_sse",
+      "tool_name": "query_database",
       "instruction": "{generate_query}",
-      "depends_on": ["generate_query"],
+      "depends_on": [
+        "generate_query"
+      ],
       "timeout": 60
     },
     {
       "id": "check_result",
       "agent": "analyst",
       "instruction": "Analyze the MCP query result and determine if it succeeded or failed.\n\nResult from MCP:\n{execute_query}\n\nYour task:\n1. Check if result contains an error message\n2. If ERROR: Extract the exact error message\n3. If SUCCESS: Confirm data was returned\n\nOutput format (STRICT - used for conditional routing):\n\nIf error found:\nhas_error: true\nerror_type: <table_not_found|column_not_found|syntax_error|join_error|other>\nerror_message: <exact error text>\n\nIf successful:\nhas_error: false\nrow_count: <number of rows returned>\n\nBe precise - the 'has_error' field controls whether we retry or proceed.",
-      "depends_on": ["execute_query"],
+      "depends_on": [
+        "execute_query"
+      ],
       "timeout": 30
     },
     {
       "id": "synthesize_results",
       "agent": "analyst",
       "instruction": "Process and present the successful database query results.\n\nQuery executed:\n{generate_query}\n\nResults:\n{execute_query}\n\nProvide:\n1. Summary of what was queried\n2. Key findings from the data\n3. Formatted presentation of results (table or list)\n4. Any notable patterns or insights",
-      "depends_on": ["check_result"],
+      "depends_on": [
+        "check_result"
+      ],
       "timeout": 60
     },
     {
       "id": "format_output",
       "agent": "writer",
-      "instruction": "Create a professional, well-formatted response for the user.\n\nOriginal request: {user_request}\n\nAnalysis:\n{synthesize_results}\n\nCreate a clear, concise response that:\n- Directly answers the user's question\n- Presents data in readable format (tables, lists, or prose)\n- Highlights key insights\n- Is professional but conversational",
-      "depends_on": ["synthesize_results"],
+      "instruction": "Create a professional, well-formatted response for the user.\n\nOriginal request: {user_input}\n\nAnalysis:\n{synthesize_results}\n\nCreate a clear, concise response that:\n- Directly answers the user's question\n- Presents data in readable format (tables, lists, or prose)\n- Highlights key insights\n- Is professional but conversational",
+      "depends_on": [
+        "synthesize_results"
+      ],
       "timeout": 60
     }
   ],

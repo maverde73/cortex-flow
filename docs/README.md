@@ -51,10 +51,20 @@ Build structured workflows with templates and conditional routing.
 - [**Migration Guide**](workflows/06_migration_guide.md) - Hybrid ReAct/Workflow migration
 - [**LangGraph Compatibility**](workflows/07_langgraph_compatibility.md) - ✨ **NEW v0.4.0** - Native LangGraph compilation
 
+### 🌐 Web Application
+Powerful visual interface for building and managing AI workflows.
+
+- [**Web App Overview**](web-app/README.md) - ✨ **NEW** - Complete web application guide
+- [**User Guide**](web-app/user-guide.md) - Comprehensive usage instructions
+- [**Architecture**](web-app/architecture.md) - Frontend technical architecture
+- [**API Reference**](web-app/api-reference.md) - Complete REST API documentation
+- [**Process Management**](web-app/process-management.md) - Agent lifecycle control
+- [**Troubleshooting**](web-app/troubleshooting.md) - Common issues and solutions
+
 ### 💬 Chatbot & API
 Use Cortex-Flow as an OpenAI-compatible chatbot with conversation memory.
 
-- [**Chatbot Overview**](chatbot/README.md) - ✨ **NEW** - Chatbot documentation index
+- [**Chatbot Overview**](chatbot/README.md) - Chatbot documentation index
 - [**API Guide**](chatbot/api_guide.md) - OpenAI-compatible chat completions
 - [**Implementation Summary**](chatbot/implementation_summary.md) - Technical implementation details
 - [**Quick Start**](chatbot/api_guide.md#quick-start) - Get started in 5 minutes
@@ -85,7 +95,12 @@ Complete reference documentation for all configuration options.
 **New to Cortex-Flow?**
 1. [Installation Guide](getting-started/installation.md)
 2. [Quick Start](getting-started/quick-start.md)
-3. [System Architecture Overview](architecture/README.md)
+3. [Web App Overview](web-app/README.md)
+
+**Using the Web Interface?**
+1. [Web App User Guide](web-app/user-guide.md)
+2. [Process Management](web-app/process-management.md)
+3. [Troubleshooting](web-app/troubleshooting.md)
 
 **Want to add MCP tools?**
 1. [MCP Overview](mcp/README.md)
@@ -122,13 +137,15 @@ Complete reference documentation for all configuration options.
 | Topic | Beginner | Intermediate | Advanced |
 |-------|----------|--------------|----------|
 | **Setup** | [Installation](getting-started/installation.md) | [Configuration](getting-started/configuration.md) | [Environment Variables](reference/environment-variables.md) |
+| **Web App** | [Web App Overview](web-app/README.md) | [User Guide](web-app/user-guide.md) | [Architecture](web-app/architecture.md) |
 | **Agents** | [Agents Overview](agents/README.md) | [ReAct Pattern](agents/react-pattern.md) | [Agent Management](agents/agent-management.md) |
 | **MCP** | [MCP Overview](mcp/README.md) | [Getting Started](mcp/getting-started.md) | [Protocol Implementation](mcp/protocol-implementation.md) |
 | **Workflows** | [Workflows Overview](workflows/README.md) | [Creating Templates](workflows/01_creating_templates.md) | [Conditional Routing](workflows/02_conditional_routing.md) |
+| **API** | [API Reference](web-app/api-reference.md) | [Chatbot API](chatbot/api_guide.md) | [Process Management](web-app/process-management.md) |
 | **Development** | [Development Guide](development/README.md) | [Testing](development/testing.md) | [Contributing](development/contributing.md) |
 
 ---
 
-**Last Updated**: 2025-10-06
-**Documentation Version**: 1.0
+**Last Updated**: 2025-10-08
+**Documentation Version**: 1.1
 **Cortex-Flow Version**: 1.0.0

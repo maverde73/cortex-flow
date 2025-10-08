@@ -406,3 +406,31 @@ export interface HealthCheck {
   version: string;
   projects_dir: string;
 }
+
+// ============================================================================
+// Process Management
+// ============================================================================
+
+export type ProcessType = 'agent' | 'workflow';
+export type ProcessStatus = 'running' | 'stopped' | 'error' | 'starting';
+
+export interface ProcessInfo {
+  pid: number;
+  name: string;
+  type: ProcessType;
+  status: ProcessStatus;
+  port?: number;
+  cpu_percent: number;
+  memory_mb: number;
+  uptime_seconds: number;
+  log_file?: string;
+}
+
+export interface ProcessStartRequest {
+  name: string;
+}
+
+export interface ProcessLogsResponse {
+  name: string;
+  logs: string[];
+}

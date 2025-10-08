@@ -42,6 +42,8 @@ import type {
   APIKeyValidateResponse,
   ApiResponse,
   HealthCheck,
+  ProcessInfo,
+  ProcessLogsResponse,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8002';
@@ -422,6 +424,53 @@ class ApiClient {
     const { data } = await this.client.get<AgentHealthResponse>(
       `/api/agents/${agentName}/health`,
       { params: { project_name: projectName } }
+    );
+    return data;
+  }
+
+  // ============================================================================
+  // Process Management
+  // ============================================================================
+
+  async getProcessesStatus(): Promise<ProcessInfo[]> {
+    const { data } = await this.client.get<ProcessInfo[]>('/api/processes/status');
+    return data;
+  }
+
+  async getProcessStatus(processName: string): Promise<ProcessInfo> {
+    const { data } = await this.client.get<ProcessInfo>(`/api/processes/${processName}/status`);
+    return data;
+  }
+
+  async startProcess(processName: string): Promise<ProcessInfo> {
+    const { data } = await this.client.post<ProcessInfo>('/api/processes/start', { name: processName });
+    return data;
+  }
+
+  async stopProcess(processName: string): Promise<ProcessInfo> {
+    const { data } = await this.client.post<ProcessInfo>(`/api/processes/${processName}/stop`);
+    return data;
+  }
+
+  async restartProcess(processName: string): Promise<ProcessInfo> {
+    const { data } = await this.client.post<ProcessInfo>(`/api/processes/${processName}/restart`);
+    return data;
+  }
+
+  async startAllProcesses(): Promise<ProcessInfo[]> {
+    const { data } = await this.client.post<ProcessInfo[]>('/api/processes/start-all');
+    return data;
+  }
+
+  async stopAllProcesses(): Promise<ProcessInfo[]> {
+    const { data } = await this.client.post<ProcessInfo[]>('/api/processes/stop-all');
+    return data;
+  }
+
+  async getProcessLogs(processName: string, lines: number = 50): Promise<ProcessLogsResponse> {
+    const { data } = await this.client.get<ProcessLogsResponse>(
+      `/api/processes/${processName}/logs`,
+      { params: { lines } }
     );
     return data;
   }
