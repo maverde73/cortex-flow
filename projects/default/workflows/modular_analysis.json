@@ -1,0 +1,87 @@
+{
+  "name": "modular_analysis",
+  "version": "1.0",
+  "description": "Modular workflow with reusable components and parallel sub-workflows",
+  "trigger_patterns": [
+    "modular analysis",
+    "comprehensive modular workflow",
+    "multi-stage analysis"
+  ],
+  "nodes": [
+    {
+      "id": "initial_research",
+      "agent": "researcher",
+      "instruction": "Gather initial information about: {topic}",
+      "depends_on": [],
+      "timeout": 180
+    },
+    {
+      "id": "parallel_analysis_1",
+      "agent": "workflow",
+      "workflow_name": "sentiment_routing",
+      "instruction": "Analyze sentiment and route accordingly",
+      "depends_on": ["initial_research"],
+      "parallel_group": "analysis",
+      "timeout": 300,
+      "workflow_params": {
+        "content": "{initial_research}",
+        "analysis_type": "detailed"
+      },
+      "max_depth": 2
+    },
+    {
+      "id": "parallel_analysis_2",
+      "agent": "workflow",
+      "workflow_name": "data_analysis_report",
+      "instruction": "Generate data analysis report",
+      "depends_on": ["initial_research"],
+      "parallel_group": "analysis",
+      "timeout": 300,
+      "workflow_params": {
+        "data": "{initial_research}",
+        "report_format": "structured"
+      },
+      "max_depth": 2
+    },
+    {
+      "id": "synthesis",
+      "agent": "analyst",
+      "instruction": "Synthesize results from parallel analyses:\n\nAnalysis 1:\n{parallel_analysis_1}\n\nAnalysis 2:\n{parallel_analysis_2}",
+      "depends_on": ["parallel_analysis_1", "parallel_analysis_2"],
+      "timeout": 180
+    },
+    {
+      "id": "final_report",
+      "agent": "workflow",
+      "workflow_name": "report_generation",
+      "instruction": "Create final comprehensive report",
+      "depends_on": ["synthesis"],
+      "timeout": 300,
+      "workflow_params": {
+        "content": "{synthesis}",
+        "format": "executive_brief",
+        "include_recommendations": true
+      },
+      "max_depth": 2
+    }
+  ],
+  "conditional_edges": [
+    {
+      "from_node": "synthesis",
+      "conditions": [
+        {
+          "field": "content_length",
+          "operator": ">",
+          "value": 5000,
+          "next_node": "final_report"
+        }
+      ],
+      "default": "final_report"
+    }
+  ],
+  "parameters": {
+    "topic": "Market analysis for emerging technologies",
+    "analysis_depth": "comprehensive",
+    "output_format": "detailed_report"
+  }
+}

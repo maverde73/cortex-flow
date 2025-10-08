@@ -114,6 +114,34 @@ Workflow compilati nativamente in LangGraph StateGraph.
 
 ---
 
+### 8. [Composable Workflows](08_composable_workflows.md) 🆕✨
+Workflow che possono chiamare altri workflow come nodi - modularità e riutilizzo.
+
+**Contenuti**:
+- Workflow come building blocks riutilizzabili
+- Esecuzione ricorsiva con limiti di profondità
+- Sub-workflow paralleli
+- Passaggio parametri tra workflow
+- Rilevamento dipendenze circolari
+- Pattern di composizione avanzati
+
+**Features**:
+- ✅ `agent: "workflow"` per chiamare sub-workflow
+- ✅ Ricorsione sicura (max_depth configurabile)
+- ✅ Inheritance parametri parent → child
+- ✅ Esecuzione parallela di sub-workflow
+- ✅ Stack tracking per debug
+
+**Esempi pratici**:
+- `research_and_report` - Combina research + report
+- `comparative_research` - 3 research paralleli + analisi
+- `modular_analysis` - Multi-livello con workflow annidati
+- `simple_research` - Building block riutilizzabile
+
+**Per chi**: Sviluppatori che vogliono creare librerie di workflow modulari
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Configura il sistema

@@ -42,7 +42,7 @@ class ConditionalEdge(BaseModel):
 class WorkflowNode(BaseModel):
     """Workflow node definition"""
     id: str = Field(..., description="Unique node identifier")
-    agent: str = Field(..., description="Agent to execute (researcher, analyst, writer, mcp_tool)")
+    agent: str = Field(..., description="Agent to execute (researcher, analyst, writer, mcp_tool, workflow)")
     instruction: str = Field(..., description="Instruction template (can use {variables})")
     depends_on: List[str] = Field(default_factory=list, description="Node dependencies")
     parallel_group: Optional[str] = Field(None, description="Parallel execution group")
@@ -57,6 +57,10 @@ class WorkflowNode(BaseModel):
             "Only applies when agent='mcp_tool' and MCP server provides prompts"
         )
     )
+    # New fields for workflow composition
+    workflow_name: Optional[str] = Field(None, description="Workflow name to execute (if agent=workflow)")
+    workflow_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters to pass to sub-workflow")
+    max_depth: int = Field(5, description="Maximum recursion depth for nested workflows")
 
 
 class WorkflowTemplate(BaseModel):
@@ -123,6 +127,10 @@ class WorkflowState(BaseModel):
     sentiment_score: Optional[float] = None
     content_length: Optional[int] = None
     custom_metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    # Recursion tracking for nested workflows
+    recursion_depth: int = Field(0, description="Current recursion depth for nested workflows")
+    parent_workflow_stack: List[str] = Field(default_factory=list, description="Stack of parent workflow names")
 
     class Config:
         arbitrary_types_allowed = True

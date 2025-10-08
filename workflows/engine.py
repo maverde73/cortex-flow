@@ -357,7 +357,9 @@ class WorkflowEngine:
             ))
 
             # Execute based on agent type
-            if node.agent == "mcp_tool":
+            if node.agent == "workflow":
+                output = await self._execute_workflow(node, state, params)
+            elif node.agent == "mcp_tool":
                 output = await self._execute_mcp_tool(node, state, params)
             else:
                 output = await self._execute_agent(node.agent, instruction, state)
@@ -529,6 +531,122 @@ class WorkflowEngine:
         )
 
         return str(result)
+
+    async def _execute_workflow(
+        self,
+        node: WorkflowNode,
+        state: WorkflowState,
+        params: Dict[str, Any]
+    ) -> str:
+        """
+        Execute a sub-workflow from a workflow node.
+
+        Args:
+            node: Workflow node with agent="workflow"
+            state: Current workflow state
+            params: Workflow parameters
+
+        Returns:
+            Output from the sub-workflow execution
+        """
+        if not node.workflow_name:
+            raise ValueError(f"Node {node.id} has agent='workflow' but no workflow_name specified")
+
+        # Check recursion depth
+        current_depth = state.recursion_depth
+        max_depth = node.max_depth or 5
+
+        if current_depth >= max_depth:
+            raise ValueError(
+                f"Maximum workflow recursion depth ({max_depth}) exceeded. "
+                f"Current depth: {current_depth}, Stack: {state.parent_workflow_stack}"
+            )
+
+        # Check for circular dependencies
+        if node.workflow_name in state.parent_workflow_stack:
+            raise ValueError(
+                f"Circular workflow dependency detected: {node.workflow_name} is already in the "
+                f"execution stack: {state.parent_workflow_stack}"
+            )
+
+        logger.info(
+            f"🔄 Executing sub-workflow '{node.workflow_name}' from node '{node.id}' "
+            f"(depth: {current_depth + 1}/{max_depth})"
+        )
+
+        # Load the sub-workflow template
+        from workflows.registry import get_workflow_registry
+        registry = get_workflow_registry(settings.workflow_templates_dir)
+
+        sub_template = registry.get(node.workflow_name)
+        if not sub_template:
+            raise ValueError(f"Workflow template '{node.workflow_name}' not found")
+
+        # Prepare parameters for sub-workflow
+        # Merge node params with substituted variables from state
+        sub_params = {}
+
+        # First, inherit parent workflow params
+        sub_params.update(params)
+
+        # Then add node-specific workflow_params
+        for key, value in node.workflow_params.items():
+            if isinstance(value, str):
+                sub_params[key] = self._substitute_variables(value, state, params)
+            else:
+                sub_params[key] = value
+
+        # Also make parent node outputs available
+        for node_id, output in state.node_outputs.items():
+            sub_params[f"{node_id}_output"] = output
+
+        # Use the instruction as user input for the sub-workflow
+        sub_user_input = self._substitute_variables(node.instruction, state, params)
+
+        # Create a new engine instance for sub-workflow (preserves mode)
+        sub_engine = WorkflowEngine(mode=self.mode)
+
+        # Update recursion tracking in state
+        state.recursion_depth = current_depth + 1
+        state.parent_workflow_stack.append(state.workflow_name or "root")
+
+        try:
+            # Execute the sub-workflow
+            result = await sub_engine.execute_workflow(
+                template=sub_template,
+                user_input=sub_user_input,
+                params=sub_params
+            )
+
+            # Log sub-workflow completion
+            execution_log_entry = WorkflowExecutionLog(
+                timestamp=time.time(),
+                node_id=node.id,
+                agent="workflow",
+                action="sub_workflow_completed",
+                details={
+                    "workflow_name": node.workflow_name,
+                    "success": result.success,
+                    "execution_time": result.total_execution_time
+                }
+            )
+            state.workflow_history.append(execution_log_entry)
+
+            if result.success:
+                logger.info(
+                    f"   ✓ Sub-workflow '{node.workflow_name}' completed successfully "
+                    f"in {result.total_execution_time:.2f}s"
+                )
+                return result.final_output
+            else:
+                logger.error(f"   ✗ Sub-workflow '{node.workflow_name}' failed: {result.error}")
+                raise RuntimeError(f"Sub-workflow '{node.workflow_name}' failed: {result.error}")
+
+        finally:
+            # Restore recursion tracking
+            state.recursion_depth = current_depth
+            if state.parent_workflow_stack:
+                state.parent_workflow_stack.pop()
 
     def _substitute_variables(
         self,

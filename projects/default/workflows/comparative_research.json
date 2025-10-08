@@ -1,0 +1,74 @@
+{
+  "name": "comparative_research",
+  "version": "1.0",
+  "description": "Compare multiple topics using the simple_research workflow as building block",
+  "trigger_patterns": [
+    "compare.*topics",
+    "comparative research",
+    "multi-topic analysis"
+  ],
+  "nodes": [
+    {
+      "id": "research_topic1",
+      "agent": "workflow",
+      "workflow_name": "simple_research",
+      "instruction": "Research the first topic",
+      "depends_on": [],
+      "parallel_group": "research",
+      "timeout": 300,
+      "workflow_params": {
+        "query": "{topic1}"
+      },
+      "max_depth": 3
+    },
+    {
+      "id": "research_topic2",
+      "agent": "workflow",
+      "workflow_name": "simple_research",
+      "instruction": "Research the second topic",
+      "depends_on": [],
+      "parallel_group": "research",
+      "timeout": 300,
+      "workflow_params": {
+        "query": "{topic2}"
+      },
+      "max_depth": 3
+    },
+    {
+      "id": "research_topic3",
+      "agent": "workflow",
+      "workflow_name": "simple_research",
+      "instruction": "Research the third topic",
+      "depends_on": [],
+      "parallel_group": "research",
+      "timeout": 300,
+      "workflow_params": {
+        "query": "{topic3}"
+      },
+      "max_depth": 3
+    },
+    {
+      "id": "compare_and_analyze",
+      "agent": "analyst",
+      "instruction": "Compare and analyze the three topics:\n\nTopic 1 ({topic1}):\n{research_topic1}\n\nTopic 2 ({topic2}):\n{research_topic2}\n\nTopic 3 ({topic3}):\n{research_topic3}\n\nProvide a comparative analysis highlighting similarities, differences, and key insights.",
+      "depends_on": ["research_topic1", "research_topic2", "research_topic3"],
+      "timeout": 180
+    },
+    {
+      "id": "final_report",
+      "agent": "writer",
+      "instruction": "Create a comprehensive comparative research report:\n\n{compare_and_analyze}",
+      "depends_on": ["compare_and_analyze"],
+      "timeout": 180,
+      "params": {
+        "template": "comparative_analysis"
+      }
+    }
+  ],
+  "conditional_edges": [],
+  "parameters": {
+    "topic1": "React framework",
+    "topic2": "Vue framework",
+    "topic3": "Angular framework"
+  }
+}

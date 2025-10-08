@@ -19,6 +19,14 @@ A distributed multi-agent AI system with a powerful web-based editor for buildin
 - **⚡ Async Performance**: Non-blocking I/O throughout the stack
 - **🔍 Full Observability**: LangSmith integration for distributed tracing
 
+### Workflow System
+- **🔗 Composable Workflows**: Workflows can call other workflows as building blocks
+- **♻️ Reusable Components**: Create modular workflow libraries
+- **🎯 Template-Based**: JSON templates for predefined execution paths
+- **🔀 Conditional Routing**: Dynamic branching based on conditions
+- **⚡ Parallel Execution**: Run multiple nodes or workflows simultaneously
+- **🛡️ Safety Controls**: Built-in recursion limits and circular dependency detection
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -148,6 +156,7 @@ Comprehensive documentation is available in the `/docs` directory:
 - **[Web Application Guide](docs/web-app/README.md)** - Using the web interface
 - **[Architecture Overview](docs/architecture/README.md)** - System design and patterns
 - **[Agent Development](docs/agents/README.md)** - Creating custom agents
+- **[Workflow System](docs/workflows/README.md)** - Building composable workflows
 - **[MCP Integration](docs/mcp/README.md)** - Connecting external tools
 - **[API Reference](docs/api/README.md)** - Complete API documentation
 
@@ -168,6 +177,22 @@ npm test
 2. Navigate to **Testing** → **Workflow Debugger**
 3. Select a workflow and provide input
 4. Click **Execute** to see step-by-step execution
+
+### Test Composable Workflows
+```python
+# Example: Test a workflow that calls other workflows
+python -m pytest tests/test_composable_workflows.py -v
+
+# Or test directly via API
+curl -X POST http://localhost:8002/api/workflows/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflow_name": "research_and_report",
+    "params": {
+      "topic": "AI trends 2024"
+    }
+  }'
+```
 
 ## 🛠️ Development
 

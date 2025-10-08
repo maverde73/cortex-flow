@@ -1,0 +1,46 @@
+{
+  "name": "research_and_report",
+  "version": "1.0",
+  "description": "Composable workflow: Executes multi-source research then generates a report",
+  "trigger_patterns": [
+    "complete research and report",
+    "full analysis with report",
+    "research.*and.*report"
+  ],
+  "nodes": [
+    {
+      "id": "research_phase",
+      "agent": "workflow",
+      "workflow_name": "multi_source_research",
+      "instruction": "Research about: {topic}",
+      "depends_on": [],
+      "timeout": 600,
+      "workflow_params": {
+        "topic": "{topic}",
+        "table_name": "{table_name}"
+      },
+      "max_depth": 3
+    },
+    {
+      "id": "report_phase",
+      "agent": "workflow",
+      "workflow_name": "report_generation",
+      "instruction": "Generate a comprehensive report based on the research",
+      "depends_on": ["research_phase"],
+      "timeout": 600,
+      "workflow_params": {
+        "research_data": "{research_phase}",
+        "report_type": "{report_type}",
+        "format": "{format}"
+      },
+      "max_depth": 3
+    }
+  ],
+  "conditional_edges": [],
+  "parameters": {
+    "topic": "Artificial Intelligence trends 2024",
+    "table_name": "research_data",
+    "report_type": "executive_summary",
+    "format": "markdown"
+  }
+}

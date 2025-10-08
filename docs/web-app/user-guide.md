@@ -104,8 +104,9 @@ The workflow editor is the heart of Cortex Flow.
 
 #### Nodes
 Each node represents an action:
-- **Agent Nodes**: Invoke specific agents
-- **Tool Nodes**: Execute tools directly
+- **Agent Nodes**: Invoke specific agents (researcher, analyst, writer)
+- **Workflow Nodes**: Execute other workflows as sub-components
+- **Tool Nodes**: Execute MCP tools directly
 - **Decision Nodes**: Conditional branching
 - **Input/Output Nodes**: Data flow control
 
@@ -118,9 +119,25 @@ Draw connections between nodes:
 #### Node Configuration
 Double-click any node to configure:
 - **Name**: Display name
-- **Agent/Tool**: Which agent or tool to use
+- **Agent/Tool/Workflow**: Which agent, tool, or workflow to use
 - **Parameters**: Input parameters
+- **Workflow Settings** (for workflow nodes):
+  - **Workflow Name**: Which workflow to execute
+  - **Workflow Params**: Parameters to pass to sub-workflow
+  - **Max Depth**: Maximum recursion depth (default: 5)
 - **Conditions**: When to execute (for conditional nodes)
+
+Example workflow node configuration:
+```json
+{
+  "agent": "workflow",
+  "workflow_name": "simple_research",
+  "workflow_params": {
+    "query": "{topic}"
+  },
+  "max_depth": 3
+}
+```
 
 ### Natural Language Mode
 
