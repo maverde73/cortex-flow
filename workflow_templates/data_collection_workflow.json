@@ -1,0 +1,64 @@
+{
+  "name": "data_collection_workflow",
+  "version": "1.0",
+  "description": "Workflow that collects data from API and saves to file using library nodes",
+  "trigger_patterns": ["collect data from", "fetch and save"],
+  "nodes": [
+    {
+      "id": "fetch_api_data",
+      "agent": "library",
+      "instruction": "Fetch data from the API",
+      "library_name": "rest_api",
+      "function_name": "http_get",
+      "function_params": {
+        "url": "{api_url}",
+        "headers": {
+          "Authorization": "Bearer {api_token}"
+        }
+      },
+      "timeout": 30
+    },
+    {
+      "id": "process_response",
+      "agent": "analyst",
+      "instruction": "Analyze the API response and extract key information: {fetch_api_data_output}",
+      "depends_on": ["fetch_api_data"]
+    },
+    {
+      "id": "save_raw_data",
+      "agent": "library",
+      "instruction": "Save raw API data",
+      "library_name": "filesystem",
+      "function_name": "write_json",
+      "function_params": {
+        "path": "{output_dir}/raw_data.json",
+        "data": "{fetch_api_data_output}"
+      },
+      "depends_on": ["fetch_api_data"]
+    },
+    {
+      "id": "save_analysis",
+      "agent": "library",
+      "instruction": "Save analysis results",
+      "library_name": "filesystem",
+      "function_name": "write_file",
+      "function_params": {
+        "path": "{output_dir}/analysis.txt",
+        "content": "{process_response_output}"
+      },
+      "depends_on": ["process_response"]
+    },
+    {
+      "id": "create_report",
+      "agent": "writer",
+      "instruction": "Create a comprehensive report based on the analysis: {process_response_output}",
+      "depends_on": ["process_response"],
+      "template": "executive_summary"
+    }
+  ],
+  "parameters": {
+    "api_url": "https://jsonplaceholder.typicode.com/posts",
+    "api_token": "optional-token",
+    "output_dir": "./data/workflow_output"
+  }
+}

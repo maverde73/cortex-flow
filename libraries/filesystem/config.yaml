@@ -1,0 +1,21 @@
+name: filesystem
+version: 1.0.0
+description: Filesystem operations library for reading and writing files
+author: Cortex Flow
+capabilities:
+  - filesystem_read
+  - filesystem_write
+config:
+  allowed_paths:
+    - /tmp
+    - ./data
+    - ./output
+  max_file_size: 10485760  # 10MB in bytes
+  allowed_extensions:
+    - .txt
+    - .json
+    - .csv
+    - .log
+    - .md
+    - .yaml
+    - .yml

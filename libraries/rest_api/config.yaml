@@ -1,0 +1,10 @@
+name: rest_api
+version: 1.0.0
+description: REST API client library for making HTTP requests
+author: Cortex Flow
+capabilities:
+  - network_access
+config:
+  default_timeout: 30
+  max_retries: 3
+  user_agent: "CortexFlow/1.0"

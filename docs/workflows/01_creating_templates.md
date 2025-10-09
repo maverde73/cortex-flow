@@ -47,15 +47,26 @@ Tutti i template vanno salvati in `workflows/templates/*.json`
   "nodes": [                            // Lista nodi (required)
     {
       "id": "string (required)",        // ID univoco nodo
-      "agent": "string (required)",     // Tipo: researcher|analyst|writer|mcp_tool
+      "agent": "string (required)",     // Tipo: researcher|analyst|writer|mcp_tool|workflow|library
       "instruction": "string (required)", // Istruzione per l'agente
 
       // OPZIONALI
       "depends_on": ["array"],          // Dipendenze (altri node IDs)
       "parallel_group": "string",       // Gruppo esecuzione parallela
       "timeout": 120,                   // Timeout in secondi (default: 120)
+      "params": {},                     // Parametri aggiuntivi
+
+      // Per mcp_tool nodes
       "tool_name": "string",            // Nome tool MCP (solo se agent="mcp_tool")
-      "params": {}                      // Parametri aggiuntivi
+
+      // Per workflow nodes
+      "workflow_name": "string",        // Nome del workflow da eseguire
+      "workflow_params": {},            // Parametri per sub-workflow
+
+      // Per library nodes
+      "library_name": "string",         // Nome della libreria
+      "function_name": "string",        // Nome della funzione
+      "function_params": {}             // Parametri per la funzione
     }
   ],
 

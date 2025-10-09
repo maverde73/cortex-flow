@@ -361,6 +361,8 @@ class WorkflowEngine:
                 output = await self._execute_workflow(node, state, params)
             elif node.agent == "mcp_tool":
                 output = await self._execute_mcp_tool(node, state, params)
+            elif node.agent == "library":
+                output = await self._execute_library(node, state, params)
             else:
                 output = await self._execute_agent(node.agent, instruction, state)
 
@@ -647,6 +649,83 @@ class WorkflowEngine:
             state.recursion_depth = current_depth
             if state.parent_workflow_stack:
                 state.parent_workflow_stack.pop()
+
+    async def _execute_library(
+        self,
+        node: WorkflowNode,
+        state: WorkflowState,
+        params: Dict[str, Any]
+    ) -> str:
+        """
+        Execute a library function node.
+
+        Args:
+            node: Node with library configuration
+            state: Current workflow state
+            params: Workflow parameters
+
+        Returns:
+            Output from the library function
+        """
+        from libraries.executor import get_library_executor
+        from libraries.registry import LibraryCapabilities
+
+        logger.info(
+            f"📚 Executing library function '{node.library_name}.{node.function_name}' "
+            f"for node '{node.id}'"
+        )
+
+        # Configure capabilities (can be customized based on workflow settings)
+        capabilities = LibraryCapabilities(
+            filesystem_read=True,
+            filesystem_write=True,
+            network_access=True
+        )
+
+        # Get or create library executor
+        executor = get_library_executor(capabilities=capabilities)
+
+        try:
+            # Execute library function
+            output = await executor.execute_library_node(node, state, params)
+
+            # Log success
+            execution_log_entry = WorkflowExecutionLog(
+                timestamp=time.time(),
+                node_id=node.id,
+                agent="library",
+                action="library_function_completed",
+                details={
+                    "library": node.library_name,
+                    "function": node.function_name,
+                    "success": True
+                }
+            )
+            state.workflow_history.append(execution_log_entry)
+
+            return output
+
+        except Exception as e:
+            logger.error(
+                f"Library function '{node.library_name}.{node.function_name}' "
+                f"failed: {e}"
+            )
+
+            # Log failure
+            execution_log_entry = WorkflowExecutionLog(
+                timestamp=time.time(),
+                node_id=node.id,
+                agent="library",
+                action="library_function_failed",
+                details={
+                    "library": node.library_name,
+                    "function": node.function_name,
+                    "error": str(e)
+                }
+            )
+            state.workflow_history.append(execution_log_entry)
+
+            raise
 
     def _substitute_variables(
         self,

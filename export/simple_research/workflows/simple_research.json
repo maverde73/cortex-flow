@@ -1,0 +1,30 @@
+{
+  "name": "simple_research",
+  "version": "1.0",
+  "description": "Simple reusable research workflow - building block for larger workflows",
+  "trigger_patterns": [
+    "quick research",
+    "simple research",
+    "basic search"
+  ],
+  "nodes": [
+    {
+      "id": "search",
+      "agent": "researcher",
+      "instruction": "Search for information about: {query}",
+      "depends_on": [],
+      "timeout": 120
+    },
+    {
+      "id": "summarize",
+      "agent": "analyst",
+      "instruction": "Summarize the key findings:\n{search}",
+      "depends_on": ["search"],
+      "timeout": 120
+    }
+  ],
+  "conditional_edges": [],
+  "parameters": {
+    "query": "latest technology trends"
+  }
+}

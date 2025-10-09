@@ -565,6 +565,69 @@ class LangGraphWorkflowCompiler:
 
             return result
 
+        elif agent_type == "workflow":
+            # Execute sub-workflow
+            from workflows.registry import get_workflow_registry
+            from workflows.engine import WorkflowEngine
+
+            if not node.workflow_name:
+                raise ValueError(f"Node {node.id}: workflow requires workflow_name")
+
+            registry = get_workflow_registry(settings.workflow_templates_dir)
+            sub_template = registry.get(node.workflow_name)
+
+            if not sub_template:
+                raise ValueError(f"Workflow template '{node.workflow_name}' not found")
+
+            # Execute sub-workflow with nested state
+            sub_engine = WorkflowEngine(mode="langgraph")
+            sub_params = {**state.workflow_params, **node.workflow_params}
+
+            # Substitute variables in sub_params
+            for key, value in sub_params.items():
+                if isinstance(value, str) and "{" in value and "}" in value:
+                    sub_params[key] = self._substitute_variables(value, state)
+
+            sub_result = await sub_engine.execute_workflow(
+                template=sub_template,
+                user_input=instruction,
+                params=sub_params
+            )
+
+            if sub_result.success:
+                return sub_result.final_output
+            else:
+                raise RuntimeError(f"Sub-workflow failed: {sub_result.error}")
+
+        elif agent_type == "library":
+            # Execute library function
+            from libraries.executor import get_library_executor
+            from libraries.registry import LibraryCapabilities
+
+            if not node.library_name or not node.function_name:
+                raise ValueError(
+                    f"Node {node.id}: library requires library_name and function_name"
+                )
+
+            logger.debug(f"   Executing library: {node.library_name}.{node.function_name}")
+
+            # Configure capabilities
+            capabilities = LibraryCapabilities(
+                filesystem_read=True,
+                filesystem_write=True,
+                network_access=True
+            )
+
+            # Get executor and execute
+            executor = get_library_executor(capabilities=capabilities)
+            output = await executor.execute_library_node(
+                node,
+                state,
+                state.workflow_params
+            )
+
+            return output
+
         else:
             raise ValueError(f"Unknown agent type: {agent_type}")
 

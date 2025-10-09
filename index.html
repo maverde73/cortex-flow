@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cortex-Flow - Distributed Multi-Agent AI System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #6366f1;
+            --secondary-color: #8b5cf6;
+            --accent-color: #ec4899;
+            --dark-bg: #0f172a;
+            --light-bg: #1e293b;
+            --card-bg: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --border-color: #475569;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
+            padding: 1rem 0;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 8rem 2rem 4rem;
+            text-align: center;
+            background: linear-gradient(180deg, var(--dark-bg) 0%, var(--light-bg) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+            animation: rotate 30s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .hero-subtitle {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.8s ease 0.2s both;
+        }
+
+        .hero-badges {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.8s ease 0.4s both;
+        }
+
+        .badge {
+            padding: 0.5rem 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 2rem;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge-icon {
+            width: 16px;
+            height: 16px;
+            background: var(--success-color);
+            border-radius: 50%;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            animation: fadeInUp 0.8s ease 0.6s both;
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--light-bg);
+            border-color: var(--primary-color);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 4rem 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 2rem;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient);
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-color);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 0.5rem 0;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            color: var(--success-color);
+            margin-right: 0.5rem;
+            font-weight: bold;
+        }
+
+        /* Architecture Section */
+        .architecture {
+            background: var(--light-bg);
+            padding: 4rem 0;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .arch-diagram {
+            background: var(--dark-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 3rem;
+            margin: 2rem 0;
+            position: relative;
+        }
+
+        .arch-layer {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .arch-layer-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.75rem;
+            color: var(--primary-color);
+        }
+
+        .arch-components {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .arch-component {
+            background: var(--light-bg);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            font-size: 0.9rem;
+        }
+
+        /* Code Examples */
+        .code-examples {
+            padding: 4rem 0;
+        }
+
+        .code-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .code-tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        .code-tab.active {
+            color: var(--primary-color);
+        }
+
+        .code-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary-color);
+        }
+
+        .code-content {
+            display: none;
+        }
+
+        .code-content.active {
+            display: block;
+        }
+
+        .code-block {
+            background: var(--dark-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-lang {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            background: var(--card-bg);
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        pre {
+            margin: 0;
+            color: var(--text-primary);
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* Statistics */
+        .stats {
+            background: var(--light-bg);
+            padding: 3rem 0;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+        }
+
+        .stat-card {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding: 2rem 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border-color);
+        }
+
+        .timeline-item {
+            position: relative;
+            padding: 2rem;
+            width: calc(50% - 2rem);
+            margin-bottom: 2rem;
+        }
+
+        .timeline-item:nth-child(even) {
+            margin-left: auto;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: var(--primary-color);
+            border: 3px solid var(--dark-bg);
+            border-radius: 50%;
+            top: 2rem;
+        }
+
+        .timeline-item:nth-child(odd)::before {
+            right: -2.5rem;
+        }
+
+        .timeline-item:nth-child(even)::before {
+            left: -2.5rem;
+        }
+
+        .timeline-content {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .timeline-date {
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-description {
+            color: var(--text-secondary);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--dark-bg);
+            border-top: 1px solid var(--border-color);
+            padding: 3rem 0;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .timeline::before {
+                left: 2rem;
+            }
+
+            .timeline-item {
+                width: calc(100% - 4rem);
+                margin-left: 4rem;
+            }
+
+            .timeline-item::before {
+                left: -2.5rem !important;
+            }
+        }
+
+        /* Utility Classes */
+        .text-gradient {
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .highlight {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            font-size: 0.85rem;
+            margin: 0.25rem;
+        }
+
+        .tag-new {
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <div class="nav-logo">🧠 Cortex-Flow</div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#architecture">Architecture</a></li>
+                <li><a href="#agents">Agents</a></li>
+                <li><a href="#workflows">Workflows</a></li>
+                <li><a href="#libraries">Libraries</a></li>
+                <li><a href="https://github.com/cortex-flow/cortex-flow">GitHub</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Cortex-Flow</h1>
+            <p class="hero-subtitle">
+                A Distributed Multi-Agent AI System powered by LangChain, LangGraph, and FastAPI
+            </p>
+            <div class="hero-badges">
+                <div class="badge">
+                    <div class="badge-icon"></div>
+                    <span>v1.1 Stable</span>
+                </div>
+                <div class="badge">
+                    <div class="badge-icon"></div>
+                    <span>Production Ready</span>
+                </div>
+                <div class="badge">
+                    <div class="badge-icon"></div>
+                    <span>MCP Protocol</span>
+                </div>
+                <div class="badge">
+                    <div class="badge-icon"></div>
+                    <span>OpenAI Compatible</span>
+                </div>
+            </div>
+            <div class="cta-buttons">
+                <a href="https://github.com/cortex-flow/cortex-flow" class="btn btn-primary">Get Started</a>
+                <a href="#features" class="btn btn-secondary">Learn More</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Powerful Features</h2>
+                <p class="section-subtitle">Everything you need to build intelligent AI workflows</p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3 class="feature-title">Multi-Agent System</h3>
+                    <p class="feature-description">
+                        Specialized AI agents working together with the ReAct pattern
+                    </p>
+                    <ul class="feature-list">
+                        <li>Supervisor Agent for orchestration</li>
+                        <li>Researcher Agent for web research</li>
+                        <li>Analyst Agent for data analysis</li>
+                        <li>Writer Agent for content generation</li>
+                        <li>Custom agent creation support</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3 class="feature-title">Workflow Templates</h3>
+                    <p class="feature-description">
+                        Template-based workflow system with visual execution
+                    </p>
+                    <ul class="feature-list">
+                        <li>JSON-based workflow definitions</li>
+                        <li>Conditional routing & branching</li>
+                        <li>Parallel node execution</li>
+                        <li>Composable sub-workflows</li>
+                        <li>LangGraph native compilation</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔌</div>
+                    <h3 class="feature-title">MCP Integration</h3>
+                    <p class="feature-description">
+                        Model Context Protocol for external tool integration
+                    </p>
+                    <ul class="feature-list">
+                        <li>Connect any MCP server</li>
+                        <li>Filesystem tools</li>
+                        <li>Database operations</li>
+                        <li>API integrations</li>
+                        <li>Custom MCP tools</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📚</div>
+                    <h3 class="feature-title">Python Libraries <span class="tag tag-new">NEW</span></h3>
+                    <p class="feature-description">
+                        Integrate any Python functionality into workflows
+                    </p>
+                    <ul class="feature-list">
+                        <li>Decorator-based registration</li>
+                        <li>Type validation with Pydantic</li>
+                        <li>Built-in REST API library</li>
+                        <li>Filesystem operations</li>
+                        <li>Security capabilities system</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3 class="feature-title">Web Interface</h3>
+                    <p class="feature-description">
+                        Powerful visual interface for workflow management
+                    </p>
+                    <ul class="feature-list">
+                        <li>Visual workflow builder</li>
+                        <li>Real-time execution monitoring</li>
+                        <li>Agent health dashboard</li>
+                        <li>Process management</li>
+                        <li>Dark/light theme</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h3 class="feature-title">OpenAI Compatible API</h3>
+                    <p class="feature-description">
+                        Drop-in replacement for OpenAI Chat Completions
+                    </p>
+                    <ul class="feature-list">
+                        <li>Chat completions endpoint</li>
+                        <li>Conversation memory</li>
+                        <li>LangChain integration</li>
+                        <li>Token management</li>
+                        <li>Streaming support</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="architecture">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">System Architecture</h2>
+                <p class="section-subtitle">Distributed, scalable, and production-ready</p>
+            </div>
+
+            <div class="arch-diagram">
+                <div class="arch-layer">
+                    <div class="arch-layer-title">🎯 Application Layer</div>
+                    <div class="arch-components">
+                        <div class="arch-component">Web UI (React)</div>
+                        <div class="arch-component">CLI Tools</div>
+                        <div class="arch-component">REST API</div>
+                        <div class="arch-component">WebSocket</div>
+                    </div>
+                </div>
+
+                <div class="arch-layer">
+                    <div class="arch-layer-title">🧠 Agent Layer</div>
+                    <div class="arch-components">
+                        <div class="arch-component">Supervisor</div>
+                        <div class="arch-component">Researcher</div>
+                        <div class="arch-component">Analyst</div>
+                        <div class="arch-component">Writer</div>
+                        <div class="arch-component">Custom Agents</div>
+                    </div>
+                </div>
+
+                <div class="arch-layer">
+                    <div class="arch-layer-title">⚙️ Core Engine</div>
+                    <div class="arch-components">
+                        <div class="arch-component">LangGraph</div>
+                        <div class="arch-component">Workflow Engine</div>
+                        <div class="arch-component">MCP Client</div>
+                        <div class="arch-component">Library Executor</div>
+                    </div>
+                </div>
+
+                <div class="arch-layer">
+                    <div class="arch-layer-title">🔧 Infrastructure</div>
+                    <div class="arch-components">
+                        <div class="arch-component">FastAPI</div>
+                        <div class="arch-component">Redis/PostgreSQL</div>
+                        <div class="arch-component">Docker</div>
+                        <div class="arch-component">Kubernetes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Code Examples -->
+    <section class="code-examples">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Quick Examples</h2>
+                <p class="section-subtitle">Get started in minutes</p>
+            </div>
+
+            <div class="code-tabs">
+                <button class="code-tab active" onclick="showTab('workflow')">Workflow Template</button>
+                <button class="code-tab" onclick="showTab('library')">Custom Library</button>
+                <button class="code-tab" onclick="showTab('agent')">Agent Usage</button>
+                <button class="code-tab" onclick="showTab('api')">API Call</button>
+            </div>
+
+            <div id="workflow" class="code-content active">
+                <div class="code-block">
+                    <span class="code-lang">JSON</span>
+                    <pre>{
+  "name": "research_and_report",
+  "nodes": [
+    {
+      "id": "research",
+      "agent": "researcher",
+      "instruction": "Research {topic} trends in 2024"
+    },
+    {
+      "id": "analyze",
+      "agent": "analyst",
+      "instruction": "Analyze the research findings",
+      "depends_on": ["research"]
+    },
+    {
+      "id": "save_data",
+      "agent": "library",
+      "library_name": "filesystem",
+      "function_name": "write_json",
+      "function_params": {
+        "path": "./output/analysis.json",
+        "data": "{analyze_output}"
+      },
+      "depends_on": ["analyze"]
+    }
+  ]
+}</pre>
+                </div>
+            </div>
+
+            <div id="library" class="code-content">
+                <div class="code-block">
+                    <span class="code-lang">Python</span>
+                    <pre>from libraries.base import library_tool, LibraryResponse
+
+@library_tool(
+    name="send_email",
+    description="Send email notification",
+    parameters={
+        "to": {"type": "string", "required": True},
+        "subject": {"type": "string", "required": True},
+        "body": {"type": "string", "required": True}
+    },
+    timeout=30
+)
+async def send_email(to: str, subject: str, body: str):
+    # Your implementation here
+    await smtp_client.send(to, subject, body)
+
+    return LibraryResponse(
+        success=True,
+        data="Email sent successfully",
+        metadata={"recipient": to}
+    )</pre>
+                </div>
+            </div>
+
+            <div id="agent" class="code-content">
+                <div class="code-block">
+                    <span class="code-lang">Python</span>
+                    <pre>from agents.researcher import get_researcher_agent
+
+# Initialize agent
+researcher = get_researcher_agent()
+
+# Execute research task
+result = await researcher.ainvoke({
+    "messages": [HumanMessage(
+        content="Research the latest AI trends"
+    )]
+})
+
+# Process results
+for message in result["messages"]:
+    if isinstance(message, AIMessage):
+        print(f"Research findings: {message.content}")</pre>
+                </div>
+            </div>
+
+            <div id="api" class="code-content">
+                <div class="code-block">
+                    <span class="code-lang">Python</span>
+                    <pre>import openai
+
+# Configure to use Cortex-Flow
+openai.api_base = "http://localhost:8080/v1"
+openai.api_key = "your-key"
+
+# Use like OpenAI
+response = openai.ChatCompletion.create(
+    model="supervisor",
+    messages=[
+        {"role": "user", "content": "Analyze market trends"}
+    ],
+    temperature=0.7
+)
+
+print(response.choices[0].message.content)</pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Statistics -->
+    <section class="stats">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">10+</div>
+                    <div class="stat-label">Built-in Agents</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">50+</div>
+                    <div class="stat-label">MCP Tools</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">∞</div>
+                    <div class="stat-label">Custom Libraries</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">OpenAI Compatible</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Workflows Section -->
+    <section id="workflows" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Workflow Capabilities</h2>
+                <p class="section-subtitle">Build complex AI pipelines with ease</p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="feature-title">Template System</h3>
+                    <ul class="feature-list">
+                        <li>JSON-based definitions</li>
+                        <li>Reusable templates</li>
+                        <li>Parameter substitution</li>
+                        <li>Version control friendly</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔀</div>
+                    <h3 class="feature-title">Conditional Routing</h3>
+                    <ul class="feature-list">
+                        <li>Dynamic branching</li>
+                        <li>Sentiment-based routing</li>
+                        <li>Error handling paths</li>
+                        <li>Custom conditions</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Parallel Execution</h3>
+                    <ul class="feature-list">
+                        <li>Concurrent node processing</li>
+                        <li>Dependency resolution</li>
+                        <li>Resource optimization</li>
+                        <li>40% faster execution</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Libraries Section -->
+    <section id="libraries" class="architecture">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Python Library System <span class="tag tag-new">NEW v1.1</span></h2>
+                <p class="section-subtitle">Extend workflows with any Python functionality</p>
+            </div>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3 class="feature-title">Security First</h3>
+                    <ul class="feature-list">
+                        <li>Capability-based access control</li>
+                        <li>Path validation</li>
+                        <li>Resource limits</li>
+                        <li>Sandboxing support</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🚀</div>
+                    <h3 class="feature-title">Built-in Libraries</h3>
+                    <ul class="feature-list">
+                        <li>REST API client</li>
+                        <li>Filesystem operations</li>
+                        <li>Email integration</li>
+                        <li>Database connectors</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚙️</div>
+                    <h3 class="feature-title">Easy Integration</h3>
+                    <ul class="feature-list">
+                        <li>Simple decorator syntax</li>
+                        <li>Automatic type validation</li>
+                        <li>Async/sync support</li>
+                        <li>Variable substitution</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Timeline -->
+    <section class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Release Timeline</h2>
+                <p class="section-subtitle">Continuous innovation and improvement</p>
+            </div>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-date">v1.1 - October 2025</div>
+                        <div class="timeline-title">Python Library System</div>
+                        <div class="timeline-description">
+                            Custom Python libraries, security capabilities, built-in REST & filesystem libraries
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-date">v1.0 - October 2025</div>
+                        <div class="timeline-title">Multi-Project Configuration</div>
+                        <div class="timeline-description">
+                            JSON-based config, multi-environment support, project isolation
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-date">v0.4 - September 2025</div>
+                        <div class="timeline-title">LangGraph Integration</div>
+                        <div class="timeline-description">
+                            Native LangGraph compilation, streaming support, checkpointing
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-content">
+                        <div class="timeline-date">v0.3 - August 2025</div>
+                        <div class="timeline-title">Web Interface</div>
+                        <div class="timeline-description">
+                            Visual workflow builder, real-time monitoring, process management
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="hero">
+        <div class="hero-content">
+            <h2 class="section-title">Ready to Build Intelligent Workflows?</h2>
+            <p class="hero-subtitle">
+                Join the community and start building with Cortex-Flow today
+            </p>
+            <div class="cta-buttons">
+                <a href="https://github.com/cortex-flow/cortex-flow" class="btn btn-primary">
+                    View on GitHub
+                </a>
+                <a href="docs/README.md" class="btn btn-secondary">
+                    Read Documentation
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://github.com/cortex-flow/cortex-flow">GitHub</a>
+                <a href="docs/README.md">Documentation</a>
+                <a href="https://discord.gg/cortexflow">Discord</a>
+                <a href="mailto:support@cortexflow.ai">Contact</a>
+            </div>
+            <p style="color: var(--text-secondary);">
+                © 2025 Cortex-Flow. Built with ❤️ by the AI community.
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all content
+            const contents = document.querySelectorAll('.code-content');
+            contents.forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active from all tabs
+            const tabs = document.querySelectorAll('.code-tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected content
+            document.getElementById(tabName).classList.add('active');
+
+            // Mark tab as active
+            event.target.classList.add('active');
+        }
+
+        // Smooth scrolling for navigation
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe feature cards
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(card);
+        });
+
+        // Add a simple particle effect to hero
+        function createParticle() {
+            const particle = document.createElement('div');
+            particle.style.position = 'absolute';
+            particle.style.width = '2px';
+            particle.style.height = '2px';
+            particle.style.background = 'rgba(99, 102, 241, 0.5)';
+            particle.style.borderRadius = '50%';
+            particle.style.pointerEvents = 'none';
+
+            const startX = Math.random() * window.innerWidth;
+            particle.style.left = startX + 'px';
+            particle.style.top = '100%';
+
+            document.querySelector('.hero').appendChild(particle);
+
+            let posY = window.innerHeight;
+            const speed = 1 + Math.random() * 2;
+
+            const animate = () => {
+                posY -= speed;
+                particle.style.top = posY + 'px';
+                particle.style.opacity = posY / window.innerHeight;
+
+                if (posY > -10) {
+                    requestAnimationFrame(animate);
+                } else {
+                    particle.remove();
+                }
+            };
+
+            animate();
+        }
+
+        // Create particles periodically
+        setInterval(createParticle, 200);
+
+        // Typing effect for hero title
+        const heroTitle = document.querySelector('.hero h1');
+        const text = heroTitle.textContent;
+        heroTitle.textContent = '';
+        let index = 0;
+
+        function typeWriter() {
+            if (index < text.length) {
+                heroTitle.textContent += text.charAt(index);
+                index++;
+                setTimeout(typeWriter, 100);
+            }
+        }
+
+        // Start typing effect when page loads
+        window.addEventListener('load', typeWriter);
+    </script>
+</body>
+</html>

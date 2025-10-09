@@ -1,0 +1,17 @@
+services:
+  mcp-research_and_report:
+    build: .
+    container_name: mcp-research_and_report
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MCP_PORT=${MCP_PORT:-8000}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+    ports:
+      - "${MCP_PORT:-8000}:${MCP_PORT:-8000}"
+    command: ["python", "server.py", "--transport", "streamable-http"]
+    restart: unless-stopped

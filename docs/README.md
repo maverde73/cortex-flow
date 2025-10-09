@@ -51,6 +51,15 @@ Build structured workflows with templates and conditional routing.
 - [**Migration Guide**](workflows/06_migration_guide.md) - Hybrid ReAct/Workflow migration
 - [**LangGraph Compatibility**](workflows/07_langgraph_compatibility.md) - ✨ **NEW v0.4.0** - Native LangGraph compilation
 
+### 📚 Libraries
+Extend workflows with custom Python libraries for any functionality.
+
+- [**Libraries Overview**](libraries/README.md) - ✨ **NEW** - Custom Python library integration
+- [**Creating Libraries**](libraries/creating-libraries.md) - Build custom libraries with decorators
+- [**Using in Workflows**](libraries/using-in-workflows.md) - Integrate libraries in workflow nodes
+- [**Security & Capabilities**](libraries/security.md) - Access control and sandboxing
+- [**Built-in Libraries**](libraries/built-in-libraries.md) - REST API, Filesystem, and more
+
 ### 🌐 Web Application
 Powerful visual interface for building and managing AI workflows.
 

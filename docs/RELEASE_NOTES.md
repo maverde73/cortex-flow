@@ -1,5 +1,74 @@
 # Release Notes
 
+## v1.1 - Python Library Integration System (2025-10-09)
+
+### 🎉 Major Features
+
+#### Custom Python Libraries in Workflows
+- **Library System** - Integrate any Python functionality into workflows
+- **Decorator-based** - Simple `@library_tool` decorator to expose functions
+- **Type Validation** - Automatic parameter validation with Pydantic
+- **Security Controls** - Capability-based access control and sandboxing
+- **Built-in Libraries** - REST API and Filesystem libraries included
+
+#### New Components
+- `libraries/` package with base classes and decorators
+- Registry system for dynamic library discovery
+- Executor module for workflow integration
+- Security capabilities system
+- Variable substitution from workflow state
+
+#### Built-in Libraries
+- **REST API Library** - HTTP GET, POST, PUT, DELETE operations
+- **Filesystem Library** - Read/write files, JSON operations, directory management
+
+### 📚 New Documentation
+- [Libraries Overview](libraries/README.md)
+- [Creating Libraries Guide](libraries/creating-libraries.md)
+- [Using Libraries in Workflows](libraries/using-in-workflows.md)
+- [Security & Capabilities](libraries/security.md)
+- [Built-in Libraries Reference](libraries/built-in-libraries.md)
+- [API Reference](libraries/api-reference.md)
+
+### 🔧 Workflow Enhancements
+- New `library` agent type for workflow nodes
+- Support for `library_name`, `function_name`, and `function_params` in nodes
+- Automatic variable substitution in library parameters
+- Full integration with LangGraph compiler
+
+### 🔒 Security Features
+- Capability-based access control (filesystem, network, etc.)
+- Path validation for filesystem operations
+- Allowlist/blocklist for libraries
+- Configurable timeouts and resource limits
+- Sandboxing support for critical operations
+
+### 📝 Example Usage
+
+```json
+{
+  "nodes": [{
+    "id": "fetch_data",
+    "agent": "library",
+    "library_name": "rest_api",
+    "function_name": "http_get",
+    "function_params": {
+      "url": "https://api.example.com/data",
+      "headers": {"Authorization": "Bearer {api_token}"}
+    }
+  }]
+}
+```
+
+### 🎯 Benefits
+- ✅ **Extensibility** - Add any Python functionality without modifying core
+- ✅ **Reusability** - Libraries can be shared across workflows
+- ✅ **Security** - Fine-grained access control
+- ✅ **Performance** - Async support and lazy loading
+- ✅ **Standardization** - Uniform interface for all libraries
+
+---
+
 ## v1.0 - Multi-Project Configuration System (2025-10-06)
 
 ### 🎉 Major Features

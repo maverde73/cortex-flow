@@ -42,7 +42,7 @@ class ConditionalEdge(BaseModel):
 class WorkflowNode(BaseModel):
     """Workflow node definition"""
     id: str = Field(..., description="Unique node identifier")
-    agent: str = Field(..., description="Agent to execute (researcher, analyst, writer, mcp_tool, workflow)")
+    agent: str = Field(..., description="Agent to execute (researcher, analyst, writer, mcp_tool, workflow, library)")
     instruction: str = Field(..., description="Instruction template (can use {variables})")
     depends_on: List[str] = Field(default_factory=list, description="Node dependencies")
     parallel_group: Optional[str] = Field(None, description="Parallel execution group")
@@ -61,6 +61,10 @@ class WorkflowNode(BaseModel):
     workflow_name: Optional[str] = Field(None, description="Workflow name to execute (if agent=workflow)")
     workflow_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters to pass to sub-workflow")
     max_depth: int = Field(5, description="Maximum recursion depth for nested workflows")
+    # New fields for library integration
+    library_name: Optional[str] = Field(None, description="Library name (if agent=library)")
+    function_name: Optional[str] = Field(None, description="Function name to call in the library")
+    function_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters to pass to the library function")
 
 
 class WorkflowTemplate(BaseModel):
