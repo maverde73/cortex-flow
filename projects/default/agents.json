@@ -1,6 +1,6 @@
 {
   "default_model": "openrouter/meta-llama/llama-3.3-70b-instruct",
-  "web_app_model": "anthropic/claude-3-5-sonnet-20241022",
+  "web_app_model": "openrouter/google/gemini-2.5-flash",
   "provider_fallback_order": "openai,anthropic,google,groq,openrouter",
   "agents": {
     "supervisor": {
@@ -16,7 +16,7 @@
       "reflection_max_iterations": 1,
       "enable_hitl": false,
       "hitl_require_approval_for": "",
-      "hitl_timeout_seconds": 180.0
+      "hitl_timeout_seconds": 180
     },
     "researcher": {
       "enabled": true,
@@ -31,7 +31,7 @@
       "reflection_max_iterations": 2,
       "enable_hitl": false,
       "hitl_require_approval_for": "",
-      "hitl_timeout_seconds": 300.0
+      "hitl_timeout_seconds": 300
     },
     "reddit": {
       "enabled": false,
@@ -46,7 +46,7 @@
       "reflection_max_iterations": 2,
       "enable_hitl": false,
       "hitl_require_approval_for": "",
-      "hitl_timeout_seconds": 300.0
+      "hitl_timeout_seconds": 300
     },
     "analyst": {
       "enabled": true,
@@ -61,7 +61,7 @@
       "reflection_max_iterations": 2,
       "enable_hitl": false,
       "hitl_require_approval_for": "",
-      "hitl_timeout_seconds": 300.0
+      "hitl_timeout_seconds": 300
     },
     "writer": {
       "enabled": true,
@@ -76,7 +76,7 @@
       "reflection_max_iterations": 3,
       "enable_hitl": false,
       "hitl_require_approval_for": "publish_*,send_*,delete_*",
-      "hitl_timeout_seconds": 600.0
+      "hitl_timeout_seconds": 600
     }
   }
 }

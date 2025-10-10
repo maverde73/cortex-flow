@@ -16,13 +16,15 @@ Architecture:
 
 import logging
 import time
-from typing import Dict, Any, List, Callable, Literal, Optional
+import operator
+from typing import Dict, Any, List, Callable, Literal, Optional, Annotated
 from collections import defaultdict
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, START, END
 from langgraph.constants import Send
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
+from pydantic import Field
 from schemas.workflow_schemas import (
     WorkflowTemplate,
     WorkflowNode,
@@ -38,21 +40,48 @@ from config_legacy import settings
 logger = logging.getLogger(__name__)
 
 
+def merge_dicts(left: Dict, right: Dict) -> Dict:
+    """Merge two dictionaries for parallel state updates."""
+    return {**left, **right}
+
+
+def keep_last_value(left: Any, right: Any) -> Any:
+    """Keep the last non-None value for single-value fields."""
+    return right if right is not None else left
+
+
 class WorkflowStateGraph(WorkflowState):
     """
     Extended WorkflowState for LangGraph compatibility.
 
     Adds LangGraph-specific fields while maintaining backward compatibility.
+    Uses Annotated types with reducers for parallel execution support.
     """
+    # Override fields from WorkflowState with Annotated reducers for parallel execution
+    workflow_params: Annotated[Dict[str, Any], merge_dicts] = Field(default_factory=dict)
+    current_node: Annotated[Optional[str], keep_last_value] = None
+    completed_nodes: Annotated[List[str], operator.add] = Field(default_factory=list)
+    node_outputs: Annotated[Dict[str, str], merge_dicts] = Field(default_factory=dict)
+    workflow_history: Annotated[List[WorkflowExecutionLog], operator.add] = Field(default_factory=list)
+    sentiment_score: Annotated[Optional[float], keep_last_value] = None
+    content_length: Annotated[Optional[int], keep_last_value] = None
+    custom_metadata: Annotated[Dict[str, Any], merge_dicts] = Field(default_factory=dict)
+    parent_workflow_stack: Annotated[List[str], operator.add] = Field(default_factory=list)
+
+    # Loop context tracking (for @latest, @first, @previous alias resolution)
+    loop_context: Annotated[Dict[str, Any], merge_dicts] = Field(default_factory=dict)
+    # Structure: {"pattern_name": {"outputs": ["node1", "node2", "node3"]}}
+    # Example: {"review_code": {"outputs": ["review_code", "review_refactored_code"]}}
+
     # User input (for node execution)
     user_input: Optional[str] = None
 
     # Execution metadata
     execution_start_time: Optional[float] = None
-    error: Optional[str] = None
+    error: Annotated[Optional[str], keep_last_value] = None
 
     # Retry tracking (per-node)
-    node_retry_counts: Optional[Dict[str, int]] = None
+    node_retry_counts: Annotated[Dict[str, int], merge_dicts] = Field(default_factory=dict)
     max_retries: int = 3  # Maximum retry attempts per node
 
     class Config:
@@ -79,6 +108,7 @@ class LangGraphWorkflowCompiler:
     def __init__(self):
         self.condition_evaluator = ConditionEvaluator()
         self._agent_executors = {}  # Cache for agent executors
+        self.loop_patterns = {}  # Loop patterns detected during compilation
 
     def compile(self, template: WorkflowTemplate) -> Any:
         """
@@ -106,6 +136,9 @@ class LangGraphWorkflowCompiler:
         entry_nodes = self._identify_entry_nodes(template)
         logger.info(f"🚪 Entry nodes identified: {entry_nodes}")
 
+        # Detect loop patterns for alias resolution
+        self.loop_patterns = self._detect_loop_patterns(template)
+
         # Add nodes
         logger.info("➕ Adding nodes to graph...")
         for node in template.nodes:
@@ -119,14 +152,12 @@ class LangGraphWorkflowCompiler:
             logger.info(f"🎯 Setting single entry point: {entry_nodes[0]}")
             graph.set_entry_point(entry_nodes[0])
         else:
-            # Multiple entry nodes - create router
-            logger.info(f"🎯 Creating entry router for {len(entry_nodes)} entry nodes")
-            graph.add_node("__entry_router__", self._create_entry_router(entry_nodes))
-            graph.set_entry_point("__entry_router__")
-
+            # Multiple entry nodes - add parallel edges from START
+            # LangGraph will automatically execute all nodes in parallel
+            logger.info(f"🎯 Adding {len(entry_nodes)} parallel entry edges from START")
             for entry_node in entry_nodes:
-                logger.debug(f"   ✓ Router → {entry_node}")
-                graph.add_edge("__entry_router__", entry_node)
+                logger.debug(f"   ✓ START → {entry_node}")
+                graph.add_edge(START, entry_node)
 
         # Add edges (dependencies and flow)
         logger.info("🔗 Adding edges (dependencies)...")
@@ -185,6 +216,63 @@ class LangGraphWorkflowCompiler:
 
         logger.debug(f"✅ Found {len(entry_nodes)} entry node(s): {entry_nodes}")
         return entry_nodes
+
+    def _detect_loop_patterns(self, template: WorkflowTemplate) -> Dict[str, List[str]]:
+        """
+        Detect loop patterns in workflow nodes.
+
+        Identifies nodes that represent iterations of the same concept,
+        such as "review_code" and "review_refactored_code".
+
+        Pattern detection rules:
+        - If node B's name contains node A's name as prefix/substring,
+          they belong to the same pattern family
+        - Example: "review_code" and "review_refactored_code" → pattern "review_code"
+
+        Returns:
+            Dict mapping pattern_name -> [node_ids in execution order]
+            Example: {"review_code": ["review_code", "review_refactored_code"]}
+        """
+        patterns = {}
+        node_ids = [n.id for n in template.nodes]
+
+        # Find base patterns by looking for common prefixes
+        # Split node names by "_" and check for shared prefixes
+        # Example: "review_code" and "review_refactored_code" share "review" prefix
+        for base_node in node_ids:
+            related_nodes = [base_node]
+            base_parts = base_node.split("_")
+
+            # Find nodes that share common prefix parts with base_node
+            for other_node in node_ids:
+                if other_node == base_node:
+                    continue
+
+                other_parts = other_node.split("_")
+
+                # Check if they share a significant common prefix (at least 2 parts)
+                # or if other_node starts with base_node as prefix
+                if other_node.startswith(base_node + "_"):
+                    related_nodes.append(other_node)
+                    logger.debug(f"      Pattern match: '{other_node}' starts with '{base_node}_'")
+                elif len(base_parts) >= 2 and len(other_parts) >= 2:
+                    # Check if first 2 parts match (e.g., "review_code" and "review_refactored")
+                    if base_parts[0] == other_parts[0] and "refactored" in other_node:
+                        # Special case for refactored versions
+                        related_nodes.append(other_node)
+                        logger.debug(f"      Pattern match: '{base_node}' and '{other_node}' share prefix and refactored")
+
+            # Only consider it a pattern if there are multiple related nodes
+            if len(related_nodes) > 1:
+                patterns[base_node] = related_nodes
+                logger.debug(f"   Pattern detected: '{base_node}' → {related_nodes}")
+
+        if patterns:
+            logger.info(f"🔄 Loop patterns detected: {list(patterns.keys())}")
+        else:
+            logger.debug("   No loop patterns detected")
+
+        return patterns
 
     def _create_node_function(
         self,
@@ -291,6 +379,21 @@ class LangGraphWorkflowCompiler:
                 # Extract metadata for conditional routing
                 metadata_updates = self._extract_metadata(output, node.id)
 
+                # Track loop context for alias resolution
+                new_loop_context = dict(getattr(state, "loop_context", {}) or {})
+
+                # Check if this node belongs to any detected pattern
+                for pattern, pattern_nodes in self.loop_patterns.items():
+                    if node.id in pattern_nodes:
+                        # Initialize pattern context if needed
+                        if pattern not in new_loop_context:
+                            new_loop_context[pattern] = {"outputs": []}
+
+                        # Add this node to the pattern's execution history
+                        if node.id not in new_loop_context[pattern]["outputs"]:
+                            new_loop_context[pattern]["outputs"].append(node.id)
+                            logger.debug(f"   🔄 Loop tracking: {pattern} → {new_loop_context[pattern]['outputs']}")
+
                 logger.debug(f"   State update: completed_nodes={new_completed}, retry_count={new_retry_counts.get(node.id)}, metadata={list(metadata_updates.keys())}")
 
                 return {
@@ -299,6 +402,7 @@ class LangGraphWorkflowCompiler:
                     "current_node": node.id,
                     "workflow_history": new_history,
                     "node_retry_counts": new_retry_counts,
+                    "loop_context": new_loop_context,
                     **metadata_updates
                 }
 
@@ -386,11 +490,14 @@ class LangGraphWorkflowCompiler:
                 logger.info(f"   ✓ Edge: {from_node} → {to_nodes[0]}")
                 graph.add_edge(from_node, to_nodes[0])
             else:
-                # Multiple dependencies - create router for parallel execution
-                router_name = f"__router_{from_node}__"
-                logger.info(f"   ✓ Parallel edge: {from_node} → {router_name} → {to_nodes}")
-                graph.add_node(router_name, self._create_parallel_router(to_nodes))
-                graph.add_edge(from_node, router_name)
+                # Multiple dependencies - use conditional edge with Send() for parallel execution
+                logger.info(f"   ✓ Parallel conditional edge: {from_node} → {to_nodes}")
+                graph.add_conditional_edges(
+                    from_node,
+                    self._create_parallel_router(to_nodes),
+                    # LangGraph expects path_map but ignores it for Send() returns
+                    {}
+                )
 
         # Handle nodes with no dependents (terminal nodes)
         all_nodes = {node.id for node in template.nodes}
@@ -663,8 +770,40 @@ class LangGraphWorkflowCompiler:
         - {user_input} - Original user input
         - {node_id} - Output from specific node
         - {param_name} - Workflow parameters
+        - {@latest:pattern} - Latest output in loop pattern
+        - {@first:pattern} - First output in loop pattern
+        - {@previous:pattern} - Previous iteration output
         """
+        import re
+
         result = template_str
+
+        # Substitute aliases FIRST (before regular variables)
+        # Pattern: {@alias:pattern_name}
+        alias_pattern = r'\{@(\w+):(\w+)\}'
+        alias_matches = re.findall(alias_pattern, result)
+
+        node_outputs = getattr(state, "node_outputs", {}) or {}
+
+        for alias, pattern in alias_matches:
+            placeholder = f"{{@{alias}:{pattern}}}"
+
+            # Resolve alias to actual node_id
+            resolved_node_id = self._resolve_alias(alias, pattern, state, self.loop_patterns)
+
+            # Get output from resolved node
+            if resolved_node_id in node_outputs:
+                resolved_output = node_outputs[resolved_node_id]
+                result = result.replace(placeholder, resolved_output)
+                logger.info(f"   ✨ Alias {placeholder} → output from '{resolved_node_id}'")
+            else:
+                # Node not executed yet, leave placeholder or warn
+                logger.warning(
+                    f"   ⚠️ Alias {placeholder} resolved to '{resolved_node_id}' "
+                    f"but no output available (node not executed yet)"
+                )
+                # Leave placeholder as-is for now
+                # result = result.replace(placeholder, f"<{resolved_node_id} not executed>")
 
         # Substitute user input
         if "{user_input}" in result:
@@ -672,7 +811,6 @@ class LangGraphWorkflowCompiler:
             result = result.replace("{user_input}", user_input)
 
         # Substitute node outputs
-        node_outputs = getattr(state, "node_outputs", {}) or {}
         for node_id, output in node_outputs.items():
             placeholder = f"{{{node_id}}}"
             if placeholder in result:
@@ -685,7 +823,146 @@ class LangGraphWorkflowCompiler:
             if placeholder in result:
                 result = result.replace(placeholder, str(param_value))
 
+        # Validate: Check for unresolved placeholders
+        # First, remove code blocks (```json...```, ```python...```) to avoid false positives
+        cleaned_result = re.sub(r'```[a-z]*.*?```', '', result, flags=re.DOTALL)
+
+        # Find potential placeholders
+        # Match {word_with_underscores} but NOT JSON-like structures
+        # Valid placeholders: {user_input}, {node_id}, {@latest:pattern}
+        # Invalid (JSON): {"key": "value"}, {a, b, c}
+        potential_placeholders = re.findall(r'\{([^}]+)\}', cleaned_result)
+
+        # Filter to keep only legitimate placeholders (not JSON)
+        remaining_placeholders = []
+        for p in potential_placeholders:
+            # Skip if it looks like JSON (contains quotes, colons outside of @alias:, commas)
+            if ('"' in p or
+                "'" in p or
+                ',' in p or
+                (':' in p and not p.startswith('@'))):
+                # This looks like JSON, skip validation
+                continue
+
+            # Skip very short placeholders (1-2 chars) - likely part of JSON examples
+            # Real placeholders are longer: {user_input}, {define_requirements}, etc.
+            if len(p.strip()) <= 2:
+                continue
+
+            # Keep for validation
+            remaining_placeholders.append(p)
+
+        if remaining_placeholders:
+            # Filter out alias placeholders (start with @) - they're handled separately
+            unresolved = [p for p in remaining_placeholders if not p.startswith('@')]
+
+            if unresolved:
+                # Build helpful error message
+                valid_placeholders = [
+                    "user_input",
+                    "<node_id> (any executed node)",
+                    "<param_name> (workflow parameters)",
+                    "@latest:<pattern>",
+                    "@first:<pattern>",
+                    "@previous:<pattern>"
+                ]
+
+                logger.error(
+                    f"❌ Unresolved placeholder(s) found: {unresolved}\n"
+                    f"   Available placeholders: {', '.join(valid_placeholders)}\n"
+                    f"   Node outputs available: {list(node_outputs.keys())}\n"
+                    f"   Workflow params available: {list(workflow_params.keys())}"
+                )
+
+                raise ValueError(
+                    f"Unresolved placeholder(s) in instruction: {unresolved}\n"
+                    f"Available placeholders:\n"
+                    f"  - {{user_input}} - Original user input\n"
+                    f"  - {{<node_id>}} - Output from any executed node: {list(node_outputs.keys())}\n"
+                    f"  - {{<param_name>}} - Workflow parameters: {list(workflow_params.keys())}\n"
+                    f"  - {{@latest:<pattern>}} - Latest output in loop pattern\n"
+                    f"  - {{@first:<pattern>}} - First output in loop pattern\n"
+                    f"  - {{@previous:<pattern>}} - Previous iteration output"
+                )
+
         return result
+
+    def _resolve_alias(
+        self,
+        alias: str,
+        pattern: str,
+        state: WorkflowStateGraph,
+        loop_patterns: Dict[str, List[str]]
+    ) -> str:
+        """
+        Resolve alias (@latest, @first, @previous) to actual node_id.
+
+        Args:
+            alias: "latest", "first", or "previous"
+            pattern: Base pattern name (e.g., "review_code")
+            state: Current workflow state
+            loop_patterns: Detected loop patterns from _detect_loop_patterns()
+
+        Returns:
+            node_id to read output from
+
+        Examples:
+            _resolve_alias("latest", "review_code", state, patterns)
+            → "review_refactored_code" (if executed) or "review_code"
+        """
+        # Get loop context for this pattern
+        loop_ctx = getattr(state, "loop_context", {}) or {}
+        pattern_ctx = loop_ctx.get(pattern, {"outputs": []})
+        executed_nodes = pattern_ctx.get("outputs", [])
+
+        # Get node outputs to check what's available
+        node_outputs = getattr(state, "node_outputs", {}) or {}
+
+        # Get pattern nodes from detected patterns
+        pattern_nodes = loop_patterns.get(pattern, [pattern])
+
+        if alias == "latest":
+            # Return the most recently executed node in the pattern
+            # Check in reverse order (most recent first)
+            for node_id in reversed(executed_nodes):
+                if node_id in node_outputs:
+                    logger.debug(f"   🔗 Alias @latest:{pattern} → {node_id}")
+                    return node_id
+
+            # Fallback: check if any pattern node has output
+            for node_id in reversed(pattern_nodes):
+                if node_id in node_outputs:
+                    logger.debug(f"   🔗 Alias @latest:{pattern} → {node_id} (fallback)")
+                    return node_id
+
+            # Ultimate fallback: return base pattern
+            logger.debug(f"   🔗 Alias @latest:{pattern} → {pattern} (base)")
+            return pattern
+
+        elif alias == "first":
+            # Always return the first node in the pattern (base pattern name)
+            logger.debug(f"   🔗 Alias @first:{pattern} → {pattern}")
+            return pattern
+
+        elif alias == "previous":
+            # Return the node from previous iteration
+            if len(executed_nodes) >= 2:
+                # Get second-to-last executed node
+                prev_node = executed_nodes[-2]
+                logger.debug(f"   🔗 Alias @previous:{pattern} → {prev_node}")
+                return prev_node
+            elif len(executed_nodes) == 1:
+                # Only one node executed, return it
+                logger.debug(f"   🔗 Alias @previous:{pattern} → {executed_nodes[0]}")
+                return executed_nodes[0]
+            else:
+                # No nodes executed yet, return base pattern
+                logger.debug(f"   🔗 Alias @previous:{pattern} → {pattern} (base)")
+                return pattern
+
+        else:
+            logger.warning(f"   ⚠️ Unknown alias '{alias}', falling back to pattern: {pattern}")
+            return pattern
 
     def _extract_metadata(self, output: str, node_id: str = None) -> Dict[str, Any]:
         """
@@ -695,6 +972,8 @@ class LangGraphWorkflowCompiler:
             Dictionary with extracted metadata fields
         """
         from workflows.conditions import extract_sentiment_score
+        import json
+        import re
 
         metadata = {}
 
@@ -721,6 +1000,39 @@ class LangGraphWorkflowCompiler:
                 # Default to error if we can't parse (safer)
                 custom_metadata["has_error"] = True
                 logger.warning(f"   ⚠️ Could not parse has_error from output, defaulting to True")
+
+            metadata["custom_metadata"] = custom_metadata
+
+        # Special handling for quality_gate and review_refactored_code - parse JSON with quality metrics
+        elif node_id in ("quality_gate", "review_refactored_code"):
+            custom_metadata = {}
+
+            # Extract JSON from output (supports markdown code blocks)
+            json_match = re.search(r'```json\s*(\{.*?\})\s*```', output, re.DOTALL)
+            if not json_match:
+                # Fallback: search for JSON object directly
+                json_match = re.search(r'(\{[^{}]*"quality_score"[^{}]*\})', output, re.DOTALL)
+
+            if json_match:
+                try:
+                    data = json.loads(json_match.group(1))
+                    custom_metadata["quality_score"] = float(data.get("quality_score", 0.0))
+                    custom_metadata["iteration_count"] = int(data.get("iteration_count", 0))
+                    logger.info(
+                        f"   🔍 Extracted metadata from {node_id}: "
+                        f"quality_score={custom_metadata['quality_score']}, "
+                        f"iteration_count={custom_metadata['iteration_count']}"
+                    )
+                except (json.JSONDecodeError, ValueError, KeyError) as e:
+                    logger.warning(f"   ⚠️ Failed to parse JSON from {node_id} output: {e}")
+                    # Fallback to defaults to prevent infinite loop
+                    custom_metadata["quality_score"] = 0.0
+                    custom_metadata["iteration_count"] = 0
+            else:
+                logger.warning(f"   ⚠️ No JSON found in {node_id} output")
+                # Fallback to defaults
+                custom_metadata["quality_score"] = 0.0
+                custom_metadata["iteration_count"] = 0
 
             metadata["custom_metadata"] = custom_metadata
 

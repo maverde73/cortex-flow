@@ -17,6 +17,8 @@ from datetime import datetime
 import httpx
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 # Add project root to path for DSL imports
@@ -2015,6 +2017,42 @@ async def get_process_logs(process_name: str, lines: int = 50):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get logs: {str(e)}"
+        )
+
+
+# ============================================================================
+# Static Files - Frontend (React SPA)
+# ============================================================================
+
+# Frontend dist directory
+FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+
+# Mount static files (JS, CSS, assets)
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+    logger.info(f"✅ Frontend static files mounted from: {FRONTEND_DIST}")
+else:
+    logger.warning(f"⚠️ Frontend build not found at: {FRONTEND_DIST}")
+    logger.warning("   Run 'cd frontend && npm run build' to build the frontend")
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str):
+    """
+    Serve the React SPA for all non-API routes.
+
+    This catch-all route handles client-side routing by always serving index.html
+    for any path that doesn't match an API endpoint or static file.
+    """
+    # Return index.html for SPA routing
+    index_file = FRONTEND_DIST / "index.html"
+
+    if index_file.exists():
+        return FileResponse(index_file)
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="Frontend not built. Run 'npm run build' in the frontend directory."
         )
 
 

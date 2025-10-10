@@ -1,0 +1,120 @@
+{
+  "name": "competitive_coding_agent",
+  "version": "1.0",
+  "description": "Un agente di sviluppo avanzato che analizza i requisiti, esegue ricerche parallele su best practice e documentazione, scrive codice, lo revisiona iterativamente, genera test e infine pacchettizza la soluzione completa. Parametri richiesti: {user_input}",
+  "trigger_patterns": [
+    ".*sviluppa codice.*",
+    ".*scrivi uno script.*",
+    ".*crea una api.*",
+    ".*realizza un programma.*"
+  ],
+  "nodes": [
+    {
+      "id": "define_requirements",
+      "agent": "analyst",
+      "instruction": "Analizza la seguente richiesta utente: '{user_input}'. Estrai e definisci i requisiti tecnici in formato JSON, includendo: 'language', 'language_version', 'framework', 'framework_version', 'libraries' (con versioni specifiche), 'project_structure' (lista di file da creare), e un 'implementation_plan' dettagliato.",
+      "depends_on": []
+    },
+    {
+      "id": "research_best_practices",
+      "agent": "researcher",
+      "instruction": "Basandoti sui requisiti:\n{define_requirements}\nCerca su GitHub e Stack Overflow le best practice, i pattern di progettazione e le soluzioni a problemi comuni per le tecnologie specificate. Fornisci un riassunto con link ed esempi di codice.",
+      "parallel_group": "research_phase",
+      "timeout": 300,
+      "depends_on": ["define_requirements"]
+    },
+    {
+      "id": "research_official_docs",
+      "agent": "researcher",
+      "instruction": "Basandoti sui requisiti:\n{define_requirements}\nTrova la documentazione ufficiale per ogni libreria e framework nelle versioni specificate. Estrai le informazioni chiave sull'utilizzo, la configurazione e le API principali.",
+      "parallel_group": "research_phase",
+      "timeout": 300,
+      "depends_on": ["define_requirements"]
+    },
+    {
+      "id": "check_dependencies",
+      "agent": "analyst",
+      "instruction": "Basandoti sulla lista di librerie in:\n{define_requirements}\nVerifica la compatibilità tra le versioni specificate e identifica potenziali conflitti o deprecazioni. Fornisci un report di compatibilità.",
+      "parallel_group": "research_phase",
+      "depends_on": ["define_requirements"]
+    },
+    {
+      "id": "synthesize_strategy",
+      "agent": "analyst",
+      "instruction": "Sintetizza le informazioni dalle seguenti fonti:\n\nBest Practices:\n{research_best_practices}\n\nDocumentazione:\n{research_official_docs}\n\nAnalisi Dipendenze:\n{check_dependencies}\n\nCrea una strategia di codifica finale e raffinata, aggiornando il piano di implementazione definito in {define_requirements}.",
+      "depends_on": ["research_best_practices", "research_official_docs", "check_dependencies"]
+    },
+    {
+      "id": "generate_code",
+      "agent": "writer",
+      "instruction": "Scrivi il codice completo per il progetto seguendo la strategia e la struttura definite in:\n{synthesize_strategy}",
+      "depends_on": ["synthesize_strategy"]
+    },
+    {
+      "id": "review_code",
+      "agent": "analyst",
+      "instruction": "Revisiona il codice generato:\n{generate_code}\n\nValuta i seguenti aspetti: aderenza alle best practice ({research_best_practices}), correttezza rispetto alla documentazione ({research_official_docs}), leggibilità, manutenibilità e potenziali bug. Fornisci un feedback dettagliato, un 'quality_score' da 0.0 a 1.0 e un 'iteration_count' (inizia da 1).",
+      "depends_on": ["generate_code"]
+    },
+    {
+      "id": "quality_gate",
+      "agent": "analyst",
+      "instruction": "Analizza l'ultima code review disponibile:\n{@latest:review_code}\n\nEstrai quality_score (float 0.0-1.0) e iteration_count (int) dall'analisi.\n\n**IMPORTANTE: Rispondi ESCLUSIVAMENTE con JSON valido in questo formato:**\n```json\n{\n  \"quality_score\": 0.8,\n  \"iteration_count\": 1,\n  \"summary\": \"breve spiegazione della valutazione\"\n}\n```\n\nNON aggiungere testo extra fuori dal blocco JSON.",
+      "depends_on": ["review_code"]
+    },
+    {
+      "id": "refactor_code",
+      "agent": "writer",
+      "instruction": "Migliora il codice:\n{generate_code}\n\nBasandoti sul seguente feedback di revisione:\n{review_code}\n\nFornisci una nuova versione del codice corretto.",
+      "depends_on": ["quality_gate"]
+    },
+    {
+      "id": "review_refactored_code",
+      "agent": "analyst",
+      "instruction": "Rivedi il codice migliorato:\n{refactor_code}\n\nValuta la qualità e incrementa iteration_count di 1 rispetto alla revisione precedente.\n\n**IMPORTANTE: Rispondi ESCLUSIVAMENTE con JSON valido in questo formato:**\n```json\n{\n  \"quality_score\": 0.85,\n  \"iteration_count\": 2,\n  \"summary\": \"miglioramenti riscontrati e qualità aggiornata\"\n}\n```\n\nNON aggiungere testo extra fuori dal blocco JSON.",
+      "depends_on": ["refactor_code"]
+    },
+    {
+      "id": "generate_tests",
+      "agent": "analyst",
+      "instruction": "Il codice ha passato la revisione. Scrivi test unitari o di integrazione per il seguente codice, usando le best practice per il framework specificato:\n{generate_code}",
+      "depends_on": ["quality_gate"]
+    },
+    {
+      "id": "package_solution",
+      "agent": "writer",
+      "instruction": "Assembla la soluzione finale. Includi:\n1. Il codice sorgente finale:\n{generate_code}\n2. I test generati:\n{generate_tests}\n3. Un file di dipendenze (es. requirements.txt) con le versioni esatte da {define_requirements}.\n4. Un file README.md con una breve descrizione del progetto e le istruzioni per l'installazione e l'avvio.",
+      "depends_on": ["generate_tests"]
+    }
+  ],
+  "conditional_edges": [
+    {
+      "from_node": "quality_gate",
+      "conditions": [
+        {
+          "field": "custom_metadata.iteration_count",
+          "operator": ">=",
+          "value": 3,
+          "next_node": "generate_tests"
+        },
+        {
+          "field": "custom_metadata.quality_score",
+          "operator": ">=",
+          "value": 0.85,
+          "next_node": "generate_tests"
+        }
+      ],
+      "default": "refactor_code"
+    },
+    {
+      "from_node": "refactor_code",
+      "conditions": [],
+      "default": "review_refactored_code"
+    },
+    {
+      "from_node": "review_refactored_code",
+      "conditions": [],
+      "default": "quality_gate"
+    }
+  ]
+}

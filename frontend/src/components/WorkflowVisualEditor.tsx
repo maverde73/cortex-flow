@@ -145,7 +145,9 @@ function workflowToFlow(workflow: Workflow): { nodes: Node[]; edges: Edge[] } {
 
     // Create edges based on depends_on
     workflow.nodes.forEach((node) => {
-      if (node.depends_on.length === 0) {
+      const dependsOn = node.depends_on || [];  // ← Handle undefined/missing depends_on
+
+      if (dependsOn.length === 0) {
         // No dependencies → connect from start
         edges.push({
           id: `start-${node.id}`,
@@ -161,7 +163,7 @@ function workflowToFlow(workflow: Workflow): { nodes: Node[]; edges: Edge[] } {
         });
       } else {
         // Connect from dependencies
-        node.depends_on.forEach((dep) => {
+        dependsOn.forEach((dep) => {
           edges.push({
             id: `${dep}-${node.id}`,
             source: dep,
@@ -232,7 +234,10 @@ function workflowToFlow(workflow: Workflow): { nodes: Node[]; edges: Edge[] } {
       // Node is "last" if:
       // 1. No other node depends on it
       // 2. It's not a source of conditional edges
-      const noDependents = !workflow.nodes!.some((n) => n.depends_on.includes(node.id));
+      const noDependents = !workflow.nodes!.some((n) => {
+        const deps = n.depends_on || [];  // ← Handle undefined/missing depends_on
+        return deps.includes(node.id);
+      });
       const noConditionalOut = !nodesWithConditionalEdges.has(node.id);
       return noDependents && noConditionalOut;
     });

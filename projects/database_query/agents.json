@@ -1,6 +1,6 @@
 {
   "default_model": "openrouter/meta-llama/llama-3.3-70b-instruct",
-  "web_app_model": "openrouter/openai/gpt-4o",
+  "web_app_model": "openrouter/google/gemini-2.5-flash",
   "provider_fallback_order": "openai,anthropic,google,groq,openrouter",
   "agents": {
     "supervisor": {
