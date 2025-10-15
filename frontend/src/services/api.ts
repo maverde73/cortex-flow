@@ -34,6 +34,16 @@ import type {
   MCPTestRequest,
   MCPTestResponse,
   MCPLibrary,
+  MCPTestResult,
+  MCPConnectionData,
+  MCPResourcesListData,
+  MCPResourceReadData,
+  MCPResourceTemplatesData,
+  MCPToolsListData,
+  MCPToolCallResult,
+  MCPPromptsListData,
+  MCPPromptGetData,
+  MCPCompletionsData,
   WorkflowGenerateRequest,
   WorkflowGenerateResponse,
   ModelRegistry,
@@ -42,6 +52,11 @@ import type {
   APIKeyValidateResponse,
   ApiResponse,
   HealthCheck,
+  AgentInvokeRequest,
+  WorkflowExecuteRequest,
+  ExecutionResult,
+  WorkflowLogsResponse,
+  AgentHealthResponse,
   ProcessInfo,
   ProcessLogsResponse,
 } from '../types/api';
@@ -360,6 +375,202 @@ class ApiClient {
     await this.client.delete(`/api/mcp/library/${serverId}`);
   }
 
+  // ----------------------------------------------------------------------------
+  // MCP Comprehensive Testing
+  // ----------------------------------------------------------------------------
+
+  /**
+   * Test MCP server connection and get capabilities
+   */
+  async testMCPConnectionAndCapabilities(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>
+  ): Promise<MCPTestResult<MCPConnectionData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPConnectionData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/connection`,
+      { server_config: serverConfig }
+    );
+    return data;
+  }
+
+  /**
+   * List all resources from MCP server
+   */
+  async testMCPResourcesList(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>
+  ): Promise<MCPTestResult<MCPResourcesListData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPResourcesListData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/resources`,
+      { server_config: serverConfig, action: 'list' }
+    );
+    return data;
+  }
+
+  /**
+   * Read a specific resource from MCP server
+   */
+  async testMCPResourceRead(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>,
+    uri: string
+  ): Promise<MCPTestResult<MCPResourceReadData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPResourceReadData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/resources`,
+      { server_config: serverConfig, action: 'read', params: { uri } }
+    );
+    return data;
+  }
+
+  /**
+   * List resource templates from MCP server
+   */
+  async testMCPResourceTemplates(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>
+  ): Promise<MCPTestResult<MCPResourceTemplatesData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPResourceTemplatesData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/resources`,
+      { server_config: serverConfig, action: 'templates' }
+    );
+    return data;
+  }
+
+  /**
+   * List all tools from MCP server
+   */
+  async testMCPToolsList(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>
+  ): Promise<MCPTestResult<MCPToolsListData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPToolsListData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/tools`,
+      { server_config: serverConfig, action: 'list' }
+    );
+    return data;
+  }
+
+  /**
+   * Call a specific tool on MCP server
+   */
+  async testMCPToolCall(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>,
+    toolName: string,
+    arguments_: Record<string, any>
+  ): Promise<MCPTestResult<MCPToolCallResult>> {
+    const { data } = await this.client.post<MCPTestResult<MCPToolCallResult>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/tools`,
+      {
+        server_config: serverConfig,
+        action: 'call',
+        params: { tool_name: toolName, arguments: arguments_ }
+      }
+    );
+    return data;
+  }
+
+  /**
+   * List all prompts from MCP server
+   */
+  async testMCPPromptsList(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>
+  ): Promise<MCPTestResult<MCPPromptsListData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPPromptsListData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/prompts`,
+      { server_config: serverConfig, action: 'list' }
+    );
+    return data;
+  }
+
+  /**
+   * Get a specific prompt from MCP server
+   */
+  async testMCPPromptGet(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>,
+    promptName: string,
+    arguments_?: Record<string, string>
+  ): Promise<MCPTestResult<MCPPromptGetData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPPromptGetData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/prompts`,
+      {
+        server_config: serverConfig,
+        action: 'get',
+        params: { prompt_name: promptName, arguments: arguments_ }
+      }
+    );
+    return data;
+  }
+
+  /**
+   * Test completions on MCP server
+   */
+  async testMCPCompletions(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>,
+    ref: Record<string, any>,
+    argument: Record<string, string>
+  ): Promise<MCPTestResult<MCPCompletionsData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPCompletionsData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/completions`,
+      { server_config: serverConfig, params: { ref, argument } }
+    );
+    return data;
+  }
+
+  /**
+   * Reset MCP server session (for stateful servers)
+   */
+  async testMCPSessionReset(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>
+  ): Promise<MCPTestResult<MCPConnectionData>> {
+    const { data } = await this.client.post<MCPTestResult<MCPConnectionData>>(
+      `/api/projects/${projectName}/mcp/test/${serverName}/session`,
+      { server_config: serverConfig, action: 'reset' }
+    );
+    return data;
+  }
+
+  /**
+   * Automatically test MCP server and update configuration with results.
+   *
+   * This runs comprehensive tests (connection, tools, prompts, resources) and:
+   * - Caches test results in mcp.json
+   * - Sets server health status (healthy|unhealthy|untested)
+   * - Returns updated server configuration
+   *
+   * Called automatically after saving MCP configuration.
+   */
+  async autoTestMCPServer(
+    projectName: string,
+    serverName: string,
+    serverConfig: Record<string, any>
+  ): Promise<{
+    success: boolean;
+    server_config?: Record<string, any>;
+    error?: string;
+    message?: string;
+  }> {
+    const { data } = await this.client.post(
+      `/api/projects/${projectName}/mcp/${serverName}/auto-test`,
+      { server_config: serverConfig }
+    );
+    return data;
+  }
+
   // ============================================================================
   // AI Generation
   // ============================================================================
@@ -417,6 +628,13 @@ class ApiClient {
 
   async executeWorkflow(request: WorkflowExecuteRequest): Promise<ExecutionResult> {
     const { data } = await this.client.post<ExecutionResult>('/api/workflows/execute', request);
+    return data;
+  }
+
+  async getWorkflowLogs(executionId: string): Promise<WorkflowLogsResponse> {
+    const { data } = await this.client.get<WorkflowLogsResponse>(
+      `/api/workflows/logs/${executionId}`
+    );
     return data;
   }
 

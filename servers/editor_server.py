@@ -1120,36 +1120,355 @@ async def update_mcp_config(project_name: str, config: MCPConfig):
     return {"status": "success", "message": "MCP configuration updated"}
 
 
-@app.post("/api/projects/{project_name}/mcp/test/{server_name}", tags=["mcp"])
-async def test_mcp_connection(project_name: str, server_name: str, request: MCPTestRequest):
-    """Test MCP server connection."""
-    # This is a simplified test - in production would actually connect to MCP server
+# ============================================================================
+# API Endpoints - MCP Testing
+# ============================================================================
 
-    result = {
-        "server_name": server_name,
-        "status": "unknown",
-        "message": "",
-        "tools": []
-    }
+class MCPTestConnectionRequest(BaseModel):
+    """Request to test MCP connection."""
+    server_config: Dict[str, Any]
 
+
+class MCPTestActionRequest(BaseModel):
+    """Request for MCP test actions (resources, tools, prompts)."""
+    server_config: Dict[str, Any]
+    action: str  # "list", "read", "call", "get", etc.
+    params: Optional[Dict[str, Any]] = None
+
+
+@app.post("/api/projects/{project_name}/mcp/test/{server_name}/connection", tags=["mcp"])
+async def test_mcp_connection(
+    project_name: str,
+    server_name: str,
+    request: MCPTestConnectionRequest
+):
+    """
+    Test MCP server connection and initialize session.
+
+    Returns server info, capabilities, and session ID for stateful servers.
+    """
     try:
-        # Mock connection test
-        # In real implementation, would use MCP client to connect
-        config = request.server_config
+        from utils.mcp_tester import MCPServerTester
 
-        if "command" in config:
-            result["status"] = "success"
-            result["message"] = f"Successfully connected to {server_name}"
-            result["tools"] = ["tool1", "tool2"]  # Would be real tools from server
-        else:
-            result["status"] = "error"
-            result["message"] = "Missing 'command' in server configuration"
+        # Create tester instance
+        tester = MCPServerTester(request.server_config)
+
+        # Test connection
+        result = await tester.test_connection()
+
+        return {
+            "success": result.success,
+            "data": result.data,
+            "error": result.error,
+            "metadata": result.metadata
+        }
 
     except Exception as e:
-        result["status"] = "error"
-        result["message"] = str(e)
+        logger.error(f"Connection test failed for {server_name}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "data": None,
+            "error": f"Connection test error: {str(e)}",
+            "metadata": {}
+        }
 
-    return result
+
+@app.post("/api/projects/{project_name}/mcp/test/{server_name}/resources", tags=["mcp"])
+async def test_mcp_resources(
+    project_name: str,
+    server_name: str,
+    request: MCPTestActionRequest
+):
+    """
+    Test MCP resources operations (list, read, templates).
+
+    Actions:
+    - list: List all resources
+    - read: Read a specific resource (requires params: {"uri": "..."})
+    - templates: List resource templates
+    """
+    try:
+        from utils.mcp_tester import MCPServerTester
+
+        tester = MCPServerTester(request.server_config)
+
+        # Route to appropriate method based on action
+        if request.action == "list":
+            result = await tester.list_resources()
+        elif request.action == "read":
+            if not request.params or "uri" not in request.params:
+                raise ValueError("Missing 'uri' parameter for read action")
+            result = await tester.read_resource(request.params["uri"])
+        elif request.action == "templates":
+            result = await tester.list_resource_templates()
+        else:
+            raise ValueError(f"Unknown action: {request.action}")
+
+        return {
+            "success": result.success,
+            "data": result.data,
+            "error": result.error,
+            "metadata": result.metadata
+        }
+
+    except Exception as e:
+        logger.error(f"Resources test failed for {server_name}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "data": None,
+            "error": f"Resources test error: {str(e)}",
+            "metadata": {}
+        }
+
+
+@app.post("/api/projects/{project_name}/mcp/test/{server_name}/tools", tags=["mcp"])
+async def test_mcp_tools(
+    project_name: str,
+    server_name: str,
+    request: MCPTestActionRequest
+):
+    """
+    Test MCP tools operations (list, call).
+
+    Actions:
+    - list: List all tools
+    - call: Call a tool (requires params: {"tool_name": "...", "arguments": {...}})
+    """
+    try:
+        from utils.mcp_tester import MCPServerTester
+
+        tester = MCPServerTester(request.server_config)
+
+        # Route to appropriate method based on action
+        if request.action == "list":
+            result = await tester.list_tools()
+        elif request.action == "call":
+            if not request.params:
+                raise ValueError("Missing params for call action")
+            if "tool_name" not in request.params:
+                raise ValueError("Missing 'tool_name' parameter")
+
+            tool_name = request.params["tool_name"]
+            arguments = request.params.get("arguments", {})
+
+            result = await tester.call_tool(tool_name, arguments)
+        else:
+            raise ValueError(f"Unknown action: {request.action}")
+
+        return {
+            "success": result.success,
+            "data": result.data,
+            "error": result.error,
+            "metadata": result.metadata
+        }
+
+    except Exception as e:
+        logger.error(f"Tools test failed for {server_name}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "data": None,
+            "error": f"Tools test error: {str(e)}",
+            "metadata": {}
+        }
+
+
+@app.post("/api/projects/{project_name}/mcp/test/{server_name}/prompts", tags=["mcp"])
+async def test_mcp_prompts(
+    project_name: str,
+    server_name: str,
+    request: MCPTestActionRequest
+):
+    """
+    Test MCP prompts operations (list, get).
+
+    Actions:
+    - list: List all prompts
+    - get: Get a specific prompt (requires params: {"prompt_name": "...", "arguments": {...}})
+    """
+    try:
+        from utils.mcp_tester import MCPServerTester
+
+        tester = MCPServerTester(request.server_config)
+
+        # Route to appropriate method based on action
+        if request.action == "list":
+            result = await tester.list_prompts()
+        elif request.action == "get":
+            if not request.params or "prompt_name" not in request.params:
+                raise ValueError("Missing 'prompt_name' parameter for get action")
+
+            prompt_name = request.params["prompt_name"]
+            arguments = request.params.get("arguments")
+
+            result = await tester.get_prompt(prompt_name, arguments)
+        else:
+            raise ValueError(f"Unknown action: {request.action}")
+
+        return {
+            "success": result.success,
+            "data": result.data,
+            "error": result.error,
+            "metadata": result.metadata
+        }
+
+    except Exception as e:
+        logger.error(f"Prompts test failed for {server_name}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "data": None,
+            "error": f"Prompts test error: {str(e)}",
+            "metadata": {}
+        }
+
+
+@app.post("/api/projects/{project_name}/mcp/test/{server_name}/completions", tags=["mcp"])
+async def test_mcp_completions(
+    project_name: str,
+    server_name: str,
+    request: MCPTestActionRequest
+):
+    """
+    Test MCP completions.
+
+    Requires params: {"ref": {...}, "argument": {"name": "...", "value": "..."}}
+    """
+    try:
+        from utils.mcp_tester import MCPServerTester
+
+        tester = MCPServerTester(request.server_config)
+
+        if not request.params:
+            raise ValueError("Missing params for completions")
+        if "ref" not in request.params or "argument" not in request.params:
+            raise ValueError("Missing 'ref' or 'argument' parameters")
+
+        result = await tester.get_completions(
+            ref=request.params["ref"],
+            argument=request.params["argument"]
+        )
+
+        return {
+            "success": result.success,
+            "data": result.data,
+            "error": result.error,
+            "metadata": result.metadata
+        }
+
+    except Exception as e:
+        logger.error(f"Completions test failed for {server_name}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "data": None,
+            "error": f"Completions test error: {str(e)}",
+            "metadata": {}
+        }
+
+
+@app.post("/api/projects/{project_name}/mcp/test/{server_name}/session", tags=["mcp"])
+async def test_mcp_session(
+    project_name: str,
+    server_name: str,
+    request: MCPTestActionRequest
+):
+    """
+    Manage MCP test session.
+
+    Actions:
+    - reset: Reset session (re-initialize)
+    """
+    try:
+        from utils.mcp_tester import MCPServerTester
+
+        tester = MCPServerTester(request.server_config)
+
+        if request.action == "reset":
+            result = await tester.reset_session()
+        else:
+            raise ValueError(f"Unknown action: {request.action}")
+
+        return {
+            "success": result.success,
+            "data": result.data,
+            "error": result.error,
+            "metadata": result.metadata
+        }
+
+    except Exception as e:
+        logger.error(f"Session test failed for {server_name}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "data": None,
+            "error": f"Session test error: {str(e)}",
+            "metadata": {}
+        }
+
+
+@app.post("/api/projects/{project_name}/mcp/{server_name}/auto-test", tags=["mcp"])
+async def auto_test_mcp_server(
+    project_name: str,
+    server_name: str,
+    request: MCPTestConnectionRequest
+):
+    """
+    Automatically test MCP server and update configuration with results.
+
+    This endpoint:
+    1. Runs comprehensive tests (connection, tools, prompts, resources)
+    2. Caches test results in mcp.json
+    3. Sets server health status (healthy|unhealthy|untested)
+    4. Returns updated server configuration
+
+    Called automatically after saving MCP configuration from frontend.
+    """
+    try:
+        from utils.mcp_auto_test import update_server_test_results
+
+        logger.info(f"🧪 Auto-testing MCP server '{server_name}' in project '{project_name}'")
+
+        # Run comprehensive tests and get updated config
+        updated_config = await update_server_test_results(
+            project_name=project_name,
+            server_name=server_name,
+            server_config=request.server_config
+        )
+
+        # Read current MCP config
+        project_dir = get_project_dir(project_name)
+        mcp_file = project_dir / "mcp.json"
+        mcp_data = read_json_file(mcp_file)
+
+        # Update only this server's configuration with test results
+        if "servers" in mcp_data and server_name in mcp_data["servers"]:
+            mcp_data["servers"][server_name].update(updated_config)
+
+            # Write back to file
+            write_json_file(mcp_file, mcp_data)
+
+            logger.info(
+                f"✅ Auto-test complete for '{server_name}': "
+                f"status={updated_config.get('status')}"
+            )
+
+            return {
+                "success": True,
+                "server_config": updated_config,
+                "message": f"MCP server '{server_name}' tested successfully"
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Server '{server_name}' not found in project MCP config"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Auto-test failed for {server_name}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": f"Auto-test error: {str(e)}",
+            "server_config": request.server_config
+        }
 
 
 @app.get("/api/mcp/library", tags=["mcp"])
@@ -1287,6 +1606,7 @@ class ExecutionResult(BaseModel):
     result: Optional[str] = None
     error: Optional[str] = None
     execution_time: float
+    execution_id: Optional[str] = None  # UUID for retrieving logs
     steps: List[ExecutionStep] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
@@ -1468,6 +1788,7 @@ async def execute_workflow(request: WorkflowExecuteRequest):
             result=result.final_output,
             error=result.error,
             execution_time=execution_time,
+            execution_id=result.execution_id,  # Pass execution_id for log retrieval
             steps=steps,
             metadata={
                 "workflow": request.workflow_name,
@@ -1487,6 +1808,144 @@ async def execute_workflow(request: WorkflowExecuteRequest):
             status_code=500,
             detail=f"Workflow execution error: {str(e)}"
         )
+
+
+@app.get("/api/workflows/logs/{execution_id}", tags=["execution"])
+async def get_workflow_logs(execution_id: str):
+    """
+    Retrieve execution logs for a specific workflow execution by ID.
+
+    Parses the /tmp/editor-server.log file to extract all log entries
+    for the given execution_id and returns structured execution steps.
+
+    Args:
+        execution_id: UUID of the workflow execution
+
+    Returns:
+        Dictionary with execution steps and metadata
+    """
+    try:
+        import re
+        from pathlib import Path
+
+        log_file = Path("/tmp/editor-server.log")
+
+        if not log_file.exists():
+            return {
+                "success": False,
+                "error": "Log file not found",
+                "steps": [],
+                "metadata": {}
+            }
+
+        # Extract first 8 chars of execution_id for matching [exec:XXXXXXXX] pattern
+        exec_id_short = execution_id[:8] if len(execution_id) >= 8 else execution_id
+
+        # Read log file and filter by execution_id
+        matching_logs = []
+        with open(log_file, 'r') as f:
+            for line in f:
+                # Look for lines with [exec:ID] pattern or lines between workflow start/end
+                if f"[exec:{exec_id_short}]" in line or f"exec:{exec_id_short}" in line:
+                    matching_logs.append(line.strip())
+
+        if not matching_logs:
+            return {
+                "success": True,
+                "message": f"No logs found for execution {exec_id_short}",
+                "steps": [],
+                "metadata": {
+                    "execution_id": execution_id,
+                    "log_count": 0
+                }
+            }
+
+        # Parse logs into structured steps
+        steps = []
+        current_node = None
+        step_counter = 0
+
+        for log_line in matching_logs:
+            step_counter += 1
+
+            # Extract timestamp and message
+            timestamp_match = re.match(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})', log_line)
+            timestamp_str = timestamp_match.group(1) if timestamp_match else ""
+
+            # Determine step type from log content
+            if "NODE START:" in log_line or "🚀" in log_line:
+                # Extract node_id from log
+                node_match = re.search(r"NODE START: (\w+)", log_line)
+                if node_match:
+                    current_node = node_match.group(1)
+                    steps.append({
+                        "step_type": "action",
+                        "node_id": current_node,
+                        "iteration": step_counter,
+                        "timestamp": timestamp_str,
+                        "content": f"Starting node '{current_node}'",
+                        "metadata": {"log_line": log_line}
+                    })
+
+            elif "NODE COMPLETE:" in log_line or "✅" in log_line:
+                # Node completion
+                node_match = re.search(r"NODE COMPLETE: (\w+)", log_line)
+                if node_match:
+                    current_node = node_match.group(1)
+                    steps.append({
+                        "step_type": "observation",
+                        "node_id": current_node,
+                        "iteration": step_counter,
+                        "timestamp": timestamp_str,
+                        "content": f"Completed node '{current_node}'",
+                        "metadata": {"log_line": log_line}
+                    })
+
+            elif "NODE ERROR:" in log_line or "❌" in log_line or "ERROR" in log_line:
+                # Error during execution
+                steps.append({
+                    "step_type": "error",
+                    "node_id": current_node,
+                    "iteration": step_counter,
+                    "timestamp": timestamp_str,
+                    "content": log_line,
+                    "metadata": {"log_line": log_line}
+                })
+
+            elif "Executing node" in log_line or "📍" in log_line:
+                # Node execution start with context
+                node_match = re.search(r"Executing node '(\w+)'", log_line)
+                if node_match:
+                    current_node = node_match.group(1)
+                    steps.append({
+                        "step_type": "action",
+                        "node_id": current_node,
+                        "iteration": step_counter,
+                        "timestamp": timestamp_str,
+                        "content": f"Executing node '{current_node}'",
+                        "metadata": {"log_line": log_line}
+                    })
+
+        return {
+            "success": True,
+            "execution_id": execution_id,
+            "steps": steps,
+            "metadata": {
+                "execution_id": execution_id,
+                "exec_id_short": exec_id_short,
+                "log_count": len(matching_logs),
+                "step_count": len(steps)
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving logs for execution {execution_id}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": f"Failed to retrieve logs: {str(e)}",
+            "steps": [],
+            "metadata": {}
+        }
 
 
 @app.get("/api/agents/{agent_name}/health", tags=["execution"])

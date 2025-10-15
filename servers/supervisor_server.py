@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from langchain_core.messages import HumanMessage
 
 from schemas.mcp_protocol import MCPRequest, MCPResponse, HealthCheckResponse
-from agents.supervisor import get_supervisor_agent
+from agents.workflow_supervisor import get_workflow_supervisor
 from services.registry import initialize_registry_from_config
 from services.health_monitor import start_health_monitoring
 from config_legacy import settings
@@ -104,7 +104,7 @@ async def invoke_agent(request: MCPRequest):
         input_message = HumanMessage(content=request.task_description)
 
         # Get agent (now async to support dynamic loading)
-        agent = await get_supervisor_agent()
+        agent = await get_workflow_supervisor()
 
         # Invoke the supervisor agent
         result = await agent.ainvoke(
@@ -265,7 +265,7 @@ async def mcp_endpoint(request: Request):
 
             try:
                 # Invoke supervisor agent
-                agent = await get_supervisor_agent()
+                agent = await get_workflow_supervisor()
                 input_message = HumanMessage(content=task_description)
 
                 result = await agent.ainvoke(

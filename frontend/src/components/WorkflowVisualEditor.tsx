@@ -22,8 +22,8 @@ import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 
 import { AgentNode, StartNode, EndNode, ConditionNode } from './workflow-nodes';
-import type { AgentNodeData, ConditionNodeData } from './workflow-nodes';
-import type { Workflow, ConditionalEdge } from '../types/api';
+import type { AgentNodeData } from './workflow-nodes';
+import type { Workflow } from '../types/api';
 
 interface WorkflowVisualEditorProps {
   workflow: Workflow | null;

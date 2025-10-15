@@ -19,7 +19,7 @@ export function ProjectsPage() {
     version: '1.0.0',
   });
 
-  const { currentProject, setCurrentProject } = useStore();
+  const { setCurrentProject } = useStore();
   const queryClient = useQueryClient();
 
   // Queries

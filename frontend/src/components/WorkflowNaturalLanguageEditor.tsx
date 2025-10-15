@@ -3,7 +3,7 @@
  * Uses AI to convert between workflow JSON and human-readable descriptions
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../services/api';
 import type { Workflow } from '../types/api';

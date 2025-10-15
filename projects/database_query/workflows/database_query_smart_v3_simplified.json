@@ -1,0 +1,105 @@
+{
+  "name": "database_query_smart_v3_simplified",
+  "version": "3.1",
+  "description": "Simplified smart database query workflow with full schema context",
+  "trigger_patterns": [
+    "database query",
+    "query database",
+    "search database",
+    "find in database",
+    "list employees",
+    "show data",
+    "how many",
+    "count"
+  ],
+  "nodes": [
+    {
+      "id": "get_welcome",
+      "agent": "mcp_resource",
+      "resource_uri": "welcome://message",
+      "server_name": "database-query-server-railway",
+      "instruction": "Read welcome resource",
+      "depends_on": [],
+      "timeout": 30
+    },
+    {
+      "id": "get_schema",
+      "agent": "mcp_tool",
+      "tool_name": "get_table_details",
+      "server_name": "database-query-server-railway",
+      "instruction": "Person,Customer,Employee,Address,SalesOrder,Product,BusinessEntity",
+      "depends_on": ["get_welcome"],
+      "timeout": 60
+    },
+    {
+      "id": "generate_query",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.1,
+        "max_tokens": 2000,
+        "system_prompt": "You are a SQL query expert. Generate ONLY valid JSON database queries. Output raw JSON without markdown wrappers.",
+        "include_workflow_history": true,
+        "history_nodes": ["check_result"]
+      },
+      "instruction": "Generate a JSON database query for: {user_input}\n\n## Available Context\n\n### Welcome Message\n{get_welcome}\n\n### Complete Database Schema\n{get_schema}\n\n### Previous Error (if retry)\n{@latest:check_result}\n\n## Instructions\n\n**IF THIS IS A RETRY** (you see error above):\n- Read the error hint CAREFULLY\n- Fix the EXACT issue mentioned\n- Generate corrected query\n\n**IF FIRST ATTEMPT**:\n1. Use EXACT table and column names from schema (case-sensitive!)\n2. Always include LIMIT for multi-row queries (default: 20)\n3. Follow these patterns:\n\n**Simple query**:\n{\"table\":\"Person\",\"select\":[\"FirstName\",\"LastName\"],\"where\":{\"PersonType\":\"EM\"},\"limit\":20}\n\n**With JOIN**:\n{\"table\":\"Employee\",\"select\":[\"Person.FirstName\",\"Employee.JobTitle\"],\"join\":[{\"table\":\"Person\",\"first\":\"Employee.BusinessEntityID\",\"second\":\"Person.BusinessEntityID\"}],\"limit\":20}\n\n**Count**:\n{\"table\":\"Person\",\"count\":\"*\",\"where\":{\"PersonType\":\"EM\"}}\n\n**CRITICAL**:\n- Output ONLY the JSON query (no markdown, no wrapper)\n- Use exact column names from schema\n- Include LIMIT for SELECT queries\n\nGenerate the query now:",
+      "depends_on": ["get_schema"],
+      "timeout": 120
+    },
+    {
+      "id": "execute_query",
+      "agent": "mcp_tool",
+      "tool_name": "execute_query",
+      "server_name": "database-query-server-railway",
+      "instruction": "{generate_query}",
+      "depends_on": ["generate_query"],
+      "timeout": 60
+    },
+    {
+      "id": "check_result",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.0,
+        "system_prompt": "You analyze database query results. Output EXACT format: 'has_error: true/false' on first line."
+      },
+      "instruction": "Analyze this database query result:\n\n{execute_query}\n\n## Task\n\n1. Check if there's an error (look for \"success\": false or \"error\" field)\n2. Output in EXACT format below\n\n## Output Format (STRICT)\n\n**If error**:\nhas_error: true\nerror_message: [exact error from database]\n\n**If success**:\nhas_error: false\nrow_count: [number]\n\n**CRITICAL**: First line MUST be exactly \"has_error: true\" or \"has_error: false\"",
+      "depends_on": ["execute_query"],
+      "timeout": 30
+    },
+    {
+      "id": "format_results",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "system_prompt": "You format database results in clear, user-friendly prose."
+      },
+      "instruction": "Format these successful database results for the user.\n\n## User Request\n{user_input}\n\n## Query Results\n{execute_query}\n\n## Task\n\nCreate a clear response that:\n- Directly answers the user's question\n- Presents data in markdown table or list format\n- Is conversational and helpful\n- Doesn't include technical JSON or query details\n\nGenerate your response:",
+      "depends_on": ["check_result"],
+      "timeout": 60
+    }
+  ],
+  "conditional_edges": [
+    {
+      "from_node": "check_result",
+      "conditions": [
+        {
+          "field": "custom_metadata.has_error",
+          "operator": "equals",
+          "value": false,
+          "next_node": "format_results"
+        }
+      ],
+      "default": "generate_query"
+    }
+  ],
+  "parameters": {
+    "user_input": "List all active employees",
+    "max_retries": 5
+  }
+}

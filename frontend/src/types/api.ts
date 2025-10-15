@@ -193,6 +193,30 @@ export interface MCPRegistry {
   servers: MCPServerInfo[];
 }
 
+export interface MCPServerConfig {
+  type: 'remote' | 'local';
+  transport: 'streamable_http' | 'sse' | 'stdio';
+  url?: string;
+  api_key?: string | null;
+  local_path?: string | null;
+  command?: string | null;
+  enabled: boolean;
+  timeout: number;
+  prompts_file?: string | null;
+  prompt_tool_association?: string | null;
+
+  // Auto-testing and health monitoring fields
+  test_results?: {
+    connection?: MCPTestResult<MCPConnectionData>;
+    tools?: MCPTestResult<MCPToolsListData>;
+    prompts?: MCPTestResult<MCPPromptsListData>;
+    resources?: MCPTestResult<MCPResourcesListData>;
+    completions?: MCPTestResult<MCPCompletionsData>;
+  };
+  last_tested?: string;  // ISO 8601 timestamp
+  status?: 'healthy' | 'unhealthy' | 'untested';
+}
+
 export interface MCPConfig {
   enabled: boolean;
   client: {
@@ -201,7 +225,7 @@ export interface MCPConfig {
     health_check_interval: number;
   };
   servers: {
-    [serverName: string]: any;
+    [serverName: string]: MCPServerConfig;
   };
   tools_enable_logging: boolean;
   tools_enable_reflection: boolean;
@@ -221,6 +245,173 @@ export interface MCPTestResponse {
 
 export interface MCPLibrary {
   servers: MCPServerInfo[];
+}
+
+// ============================================================================
+// MCP Testing (Comprehensive Protocol Testing)
+// ============================================================================
+
+// Request types for new MCP testing endpoints
+export interface MCPTestConnectionRequest {
+  server_config: Record<string, any>;
+}
+
+export interface MCPTestActionRequest {
+  server_config: Record<string, any>;
+  action: string;  // "list", "read", "call", "get", "reset", etc.
+  params?: Record<string, any>;
+}
+
+// Generic test result (matches backend MCPTestResult)
+export interface MCPTestResult<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  metadata?: Record<string, any>;
+}
+
+// MCP Connection data
+export interface MCPServerInfoData {
+  name: string;
+  version: string;
+}
+
+export interface MCPCapabilities {
+  resources?: {
+    subscribe?: boolean;
+    listChanged?: boolean;
+  };
+  tools?: {
+    listChanged?: boolean;
+  };
+  prompts?: {
+    listChanged?: boolean;
+  };
+  logging?: Record<string, any>;
+  experimental?: Record<string, any>;
+}
+
+export interface MCPConnectionData {
+  serverInfo: MCPServerInfoData;
+  capabilities: MCPCapabilities;
+  sessionId?: string;
+  protocolVersion?: string;
+}
+
+// Resources types
+export interface MCPResource {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+}
+
+export interface MCPResourceTemplate {
+  uriTemplate: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+}
+
+export interface MCPResourceContent {
+  uri: string;
+  mimeType?: string;
+  text?: string;
+  blob?: string;
+}
+
+export interface MCPResourcesListData {
+  resources: MCPResource[];
+}
+
+export interface MCPResourceReadData {
+  contents: MCPResourceContent[];
+}
+
+export interface MCPResourceTemplatesData {
+  resourceTemplates: MCPResourceTemplate[];
+}
+
+// Tools types
+export interface MCPToolParameter {
+  type: string;
+  description?: string;
+  required?: boolean;
+  properties?: Record<string, any>;
+  items?: any;
+  enum?: any[];
+}
+
+export interface MCPTool {
+  name: string;
+  description?: string;
+  inputSchema: {
+    type: string;
+    properties?: Record<string, MCPToolParameter>;
+    required?: string[];
+  };
+  outputSchema?: Record<string, any>;
+}
+
+export interface MCPToolContent {
+  type: 'text' | 'image' | 'resource';
+  text?: string;
+  data?: string;
+  mimeType?: string;
+  uri?: string;
+}
+
+export interface MCPToolCallResult {
+  content: MCPToolContent[];
+  outputData?: Record<string, any>;  // Structured output if outputSchema defined
+  isError?: boolean;
+}
+
+export interface MCPToolsListData {
+  tools: MCPTool[];
+}
+
+// Prompts types
+export interface MCPPromptArgument {
+  name: string;
+  description?: string;
+  required?: boolean;
+}
+
+export interface MCPPrompt {
+  name: string;
+  description?: string;
+  arguments?: MCPPromptArgument[];
+}
+
+export interface MCPPromptMessage {
+  role: 'user' | 'assistant';
+  content: {
+    type: 'text' | 'image' | 'resource';
+    text?: string;
+    data?: string;
+    mimeType?: string;
+  };
+}
+
+export interface MCPPromptsListData {
+  prompts: MCPPrompt[];
+}
+
+export interface MCPPromptGetData {
+  description?: string;
+  messages: MCPPromptMessage[];
+}
+
+// Completions types
+export interface MCPCompletion {
+  values: string[];
+  total?: number;
+  hasMore?: boolean;
+}
+
+export interface MCPCompletionsData {
+  completion: MCPCompletion;
 }
 
 // ============================================================================
@@ -378,6 +569,16 @@ export interface ExecutionResult {
   result?: string;
   error?: string;
   execution_time: number;
+  execution_id?: string;  // UUID for retrieving logs
+  steps: ExecutionStep[];
+  metadata: Record<string, any>;
+}
+
+export interface WorkflowLogsResponse {
+  success: boolean;
+  execution_id?: string;
+  message?: string;
+  error?: string;
   steps: ExecutionStep[];
   metadata: Record<string, any>;
 }

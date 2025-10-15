@@ -3,6 +3,8 @@
  */
 
 import { useState } from 'react';
+import { MCPServerTester } from './MCPServerTester';
+import { useStore } from '../store/useStore';
 
 interface MCPServerConfigProps {
   serverId: string;
@@ -15,11 +17,11 @@ interface MCPServerConfigProps {
     local_path?: string | null;
     enabled: boolean;
     timeout?: number;
+    status?: 'healthy' | 'unhealthy' | 'untested';
+    last_tested?: string;
   };
   onUpdate: (serverId: string, config: any) => void;
   onRemove: (serverId: string) => void;
-  onTest: (serverId: string) => void;
-  isTesting?: boolean;
 }
 
 export function MCPServerConfig({
@@ -28,11 +30,13 @@ export function MCPServerConfig({
   config,
   onUpdate,
   onRemove,
-  onTest,
-  isTesting = false,
 }: MCPServerConfigProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [localConfig, setLocalConfig] = useState(config);
+  const [showTester, setShowTester] = useState(false);
+
+  const { currentProject } = useStore();
+  const projectName = currentProject?.name || 'default';
 
   const handleUpdate = () => {
     onUpdate(serverId, localConfig);
@@ -48,13 +52,33 @@ export function MCPServerConfig({
         <div className="flex items-center gap-3">
           <div
             className={`w-3 h-3 rounded-full ${
-              localConfig.enabled ? 'bg-green-500' : 'bg-gray-300'
+              !localConfig.enabled
+                ? 'bg-gray-300'
+                : localConfig.status === 'healthy'
+                ? 'bg-green-500'
+                : localConfig.status === 'unhealthy'
+                ? 'bg-red-500'
+                : 'bg-gray-400'
             }`}
+            title={
+              !localConfig.enabled
+                ? 'Disabled'
+                : localConfig.status === 'healthy'
+                ? `Healthy - Last tested: ${localConfig.last_tested ? new Date(localConfig.last_tested).toLocaleString() : 'Never'}`
+                : localConfig.status === 'unhealthy'
+                ? `Unhealthy - Last tested: ${localConfig.last_tested ? new Date(localConfig.last_tested).toLocaleString() : 'Never'}`
+                : 'Not tested yet'
+            }
           />
           <div>
             <div className="font-medium text-gray-900">{serverName}</div>
             <div className="text-sm text-gray-500">
               {localConfig.type === 'remote' ? `Remote: ${localConfig.url}` : 'Local'}
+              {localConfig.status && localConfig.status !== 'untested' && (
+                <span className="ml-2">
+                  • {localConfig.status === 'healthy' ? '✓ Healthy' : '✗ Unhealthy'}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -63,12 +87,12 @@ export function MCPServerConfig({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onTest(serverId);
+              setShowTester(true);
             }}
-            disabled={isTesting}
-            className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded hover:bg-blue-50 disabled:opacity-50"
+            className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded hover:bg-blue-50"
+            title="Open comprehensive MCP protocol tester"
           >
-            {isTesting ? 'Testing...' : '🔌 Test'}
+            🔬 Test
           </button>
           <button
             onClick={(e) => {
@@ -143,7 +167,7 @@ export function MCPServerConfig({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  API Key (optional)
+                  Bearer Token (optional)
                 </label>
                 <input
                   type="password"
@@ -152,6 +176,9 @@ export function MCPServerConfig({
                   placeholder="sk-..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                 />
+                <div className="text-xs text-gray-500 mt-1">
+                  Sent as Authorization: Bearer &lt;token&gt; header
+                </div>
               </div>
 
               <div>
@@ -225,6 +252,17 @@ export function MCPServerConfig({
             Save Configuration
           </button>
         </div>
+      )}
+
+      {/* Comprehensive MCP Tester Modal */}
+      {showTester && (
+        <MCPServerTester
+          serverId={serverId}
+          serverName={serverName}
+          serverConfig={localConfig}
+          projectName={projectName}
+          onClose={() => setShowTester(false)}
+        />
       )}
     </div>
   );

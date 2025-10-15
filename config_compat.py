@@ -426,6 +426,40 @@ class CompatSettings:
             for name, server in self._config.mcp.servers.items()
         }
 
+    # ============================================================================
+    # Workflow Configuration (Python workflow support)
+    # ============================================================================
+
+    @property
+    def workflow_enable(self) -> bool:
+        """Enable workflow system (JSON + Python templates)."""
+        return True  # Always enabled
+
+    @property
+    def workflow_auto_classify(self) -> bool:
+        """Auto-match workflows based on user input patterns."""
+        return True  # Enable auto-classification
+
+    @property
+    def workflow_mode(self) -> str:
+        """Workflow execution mode: 'auto', 'manual', or 'hybrid'."""
+        return "auto"  # Auto-select workflows
+
+    @property
+    def workflow_engine_mode(self) -> str:
+        """Workflow engine: 'langgraph' or 'sequential'."""
+        return "langgraph"  # Use LangGraph for execution
+
+    @property
+    def workflow_templates_dir(self) -> Optional[str]:
+        """Directory containing workflow templates (JSON + Python)."""
+        return None  # Use default: workflows/templates
+
+    @property
+    def workflow_fallback_to_react(self) -> bool:
+        """Fallback to ReAct mode if workflow fails."""
+        return False  # Don't fallback by default, return error
+
 
 # Create global instance for backward compatibility
 settings = CompatSettings()

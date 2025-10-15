@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# Start all agent servers in development mode
-# Each server runs in the background on its configured port
+# Start Cortex Flow Workflow Server
+# Workflow-centric architecture: workflows ARE the agents!
+# No need for separate analyst/writer/researcher servers
 
 set -e
 
-echo "🚀 Starting Cortex Flow Multi-Agent System..."
+echo "🚀 Starting Cortex Flow Workflow Engine..."
 echo ""
 
 # Get the project root directory
@@ -28,50 +29,13 @@ mkdir -p logs
 # Set PYTHONPATH to project root for imports to work
 export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 
-# Read enabled agents from .env (default to all)
-ENABLED_AGENTS=$(grep -E "^ENABLED_AGENTS=" .env 2>/dev/null | cut -d '=' -f 2 | tr -d '"' | tr -d "'")
-if [ -z "$ENABLED_AGENTS" ]; then
-    ENABLED_AGENTS="researcher,analyst,writer"
-fi
-
-echo "📋 Enabled agents: $ENABLED_AGENTS"
-echo ""
-
-# Function to check if agent is enabled
-is_enabled() {
-    local agent=$1
-    echo "$ENABLED_AGENTS" | grep -q "$agent"
-}
-
-# Start each agent server if enabled
-if is_enabled "researcher"; then
-    echo "📡 Starting Researcher Agent (port 8001)..."
-    python servers/researcher_server.py > logs/researcher.log 2>&1 &
-    RESEARCHER_PID=$!
-fi
-
-if is_enabled "analyst"; then
-    echo "📊 Starting Analyst Agent (port 8003)..."
-    python servers/analyst_server.py > logs/analyst.log 2>&1 &
-    ANALYST_PID=$!
-fi
-
-if is_enabled "writer"; then
-    echo "✍️  Starting Writer Agent (port 8004)..."
-    python servers/writer_server.py > logs/writer.log 2>&1 &
-    WRITER_PID=$!
-fi
-
-# Give specialized agents time to start
-sleep 2
-
-echo "🎯 Starting Supervisor Agent (port 8000)..."
+echo "🎯 Starting Workflow Server (port 8000)..."
 python servers/supervisor_server.py > logs/supervisor.log 2>&1 &
 SUPERVISOR_PID=$!
 
-# Wait for servers to be ready
+# Wait for server to be ready
 echo ""
-echo "⏳ Waiting for servers to start..."
+echo "⏳ Waiting for server to start..."
 sleep 3
 
 # Health check
@@ -90,55 +54,29 @@ check_health() {
     fi
 }
 
-ALL_HEALTHY=true
-
-# Only check enabled agents
-if is_enabled "researcher"; then
-    check_health 8001 "Researcher" || ALL_HEALTHY=false
-fi
-
-if is_enabled "analyst"; then
-    check_health 8003 "Analyst" || ALL_HEALTHY=false
-fi
-
-if is_enabled "writer"; then
-    check_health 8004 "Writer" || ALL_HEALTHY=false
-fi
-
-check_health 8000 "Supervisor" || ALL_HEALTHY=false
-
-echo ""
-if [ "$ALL_HEALTHY" = true ]; then
-    echo "✅ All agents are running!"
+if check_health 8000 "Workflow Server"; then
     echo ""
-    echo "Supervisor API: http://localhost:8000"
+    echo "✅ Workflow Server is running!"
+    echo ""
+    echo "API Endpoint:   http://localhost:8000"
     echo "Swagger Docs:   http://localhost:8000/docs"
+    echo ""
+    echo "Architecture:   Workflow-centric (LLM-native)"
+    echo "  • Direct LLM invocation (OpenRouter, OpenAI, Anthropic, Groq, Google)"
+    echo "  • MCP tools integration"
+    echo "  • Sub-workflow composition"
+    echo "  • Python library execution"
     echo ""
     echo "View logs:"
     echo "  tail -f logs/supervisor.log"
-    echo "  tail -f logs/researcher.log"
-    echo "  tail -f logs/analyst.log"
-    echo "  tail -f logs/writer.log"
     echo ""
-    echo "To stop all agents: ./stop_all.sh"
+    echo "To stop: scripts/stop_all.sh"
     echo ""
 
-    # Save PIDs for enabled agents
+    # Save PID
     echo "$SUPERVISOR_PID" > logs/supervisor.pid
-
-    if is_enabled "researcher"; then
-        echo "$RESEARCHER_PID" > logs/researcher.pid
-    fi
-
-    if is_enabled "analyst"; then
-        echo "$ANALYST_PID" > logs/analyst.pid
-    fi
-
-    if is_enabled "writer"; then
-        echo "$WRITER_PID" > logs/writer.pid
-    fi
-
 else
-    echo "❌ Some agents failed to start. Check logs/ directory for details."
+    echo ""
+    echo "❌ Workflow server failed to start. Check logs/supervisor.log for details."
     exit 1
 fi

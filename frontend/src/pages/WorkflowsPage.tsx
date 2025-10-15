@@ -13,7 +13,7 @@ import { WorkflowDslEditor } from '../components/WorkflowDslEditor';
 import { WorkflowNaturalLanguageEditor } from '../components/WorkflowNaturalLanguageEditor';
 import { WorkflowPreview } from '../components/WorkflowPreview';
 import { WorkflowGenerateModal } from '../components/WorkflowGenerateModal';
-import type { Workflow, WorkflowInfo, WorkflowPreview as WorkflowPreviewType } from '../types/api';
+import type { Workflow, WorkflowInfo } from '../types/api';
 
 type ViewMode = 'list' | 'edit' | 'create';
 type EditorMode = 'code' | 'visual' | 'dsl' | 'natural';
@@ -438,7 +438,6 @@ export function WorkflowsPage() {
       {/* Generate Modal */}
       {showGenerateModal && (
         <WorkflowGenerateModal
-          projectName={projectName}
           onClose={() => setShowGenerateModal(false)}
           onAccept={handleGenerateWorkflow}
         />

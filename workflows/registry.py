@@ -1,13 +1,15 @@
 """
 Workflow Template Registry
 
-Loads, validates, and provides access to workflow templates from JSON files.
+Loads, validates, and provides access to workflow templates from JSON and Python files.
 Supports auto-matching templates based on user input patterns.
 """
 
 import json
 import logging
 import re
+import sys
+import importlib.util
 from pathlib import Path
 from typing import Dict, Optional, List
 from schemas.workflow_schemas import WorkflowTemplate
@@ -36,7 +38,7 @@ class WorkflowRegistry:
 
     def load_templates(self) -> int:
         """
-        Load all workflow templates from directory.
+        Load all workflow templates from directory (both JSON and Python).
 
         Returns:
             Number of templates loaded
@@ -48,6 +50,7 @@ class WorkflowRegistry:
 
         loaded_count = 0
 
+        # Load JSON templates
         for template_file in self.templates_dir.glob("*.json"):
             try:
                 with open(template_file, 'r') as f:
@@ -57,16 +60,104 @@ class WorkflowRegistry:
                 self._templates[template.name] = template
 
                 logger.info(
-                    f"Loaded workflow template: {template.name} "
+                    f"Loaded JSON workflow template: {template.name} "
                     f"({len(template.nodes)} nodes)"
                 )
                 loaded_count += 1
 
             except Exception as e:
-                logger.error(f"Error loading template {template_file}: {e}")
+                logger.error(f"Error loading JSON template {template_file}: {e}")
+
+        # Load Python templates
+        python_count = self.load_python_templates()
+        loaded_count += python_count
 
         self._loaded = True
-        logger.info(f"Workflow registry loaded: {loaded_count} templates")
+        logger.info(f"Workflow registry loaded: {loaded_count} templates ({loaded_count - python_count} JSON, {python_count} Python)")
+
+        return loaded_count
+
+    def load_python_templates(self) -> int:
+        """
+        Load workflow templates from Python files in workflows/python/ directory.
+
+        Python workflow files should:
+        - Be in the workflows/python/ directory
+        - Export a WorkflowTemplate instance as 'workflow' module variable
+        - OR have a create_workflow() function that returns WorkflowTemplate
+
+        Returns:
+            Number of Python templates loaded
+        """
+        loaded_count = 0
+
+        # Get the python subdirectory
+        python_dir = Path(__file__).parent / "python"
+
+        if not python_dir.exists():
+            logger.debug("No workflows/python/ directory found, skipping Python template loading")
+            return 0
+
+        # Scan for Python files (exclude __init__.py and helpers.py)
+        for py_file in python_dir.glob("*.py"):
+            if py_file.name in ["__init__.py", "helpers.py"]:
+                continue
+
+            try:
+                # Dynamically import the module
+                module_name = f"workflows.python.{py_file.stem}"
+                spec = importlib.util.spec_from_file_location(module_name, py_file)
+
+                if spec is None or spec.loader is None:
+                    logger.error(f"Could not load module spec for {py_file}")
+                    continue
+
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+
+                # Try to get workflow from module
+                workflow = None
+
+                # Option 1: Module-level 'workflow' variable
+                if hasattr(module, "workflow"):
+                    workflow = module.workflow
+                    logger.debug(f"Found 'workflow' variable in {py_file.name}")
+
+                # Option 2: create_workflow() function
+                elif hasattr(module, "create_workflow"):
+                    workflow = module.create_workflow()
+                    logger.debug(f"Called create_workflow() from {py_file.name}")
+
+                else:
+                    logger.warning(
+                        f"Python workflow file {py_file.name} has no 'workflow' variable "
+                        f"or 'create_workflow()' function, skipping"
+                    )
+                    continue
+
+                # Validate it's a WorkflowTemplate
+                if not isinstance(workflow, WorkflowTemplate):
+                    logger.error(
+                        f"Python workflow file {py_file.name} exported invalid type: "
+                        f"{type(workflow)}, expected WorkflowTemplate"
+                    )
+                    continue
+
+                # Register the template
+                self._templates[workflow.name] = workflow
+
+                logger.info(
+                    f"Loaded Python workflow template: {workflow.name} "
+                    f"({len(workflow.nodes)} nodes) from {py_file.name}"
+                )
+                loaded_count += 1
+
+            except Exception as e:
+                logger.error(
+                    f"Error loading Python workflow from {py_file}: {e}",
+                    exc_info=True
+                )
 
         return loaded_count
 

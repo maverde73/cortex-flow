@@ -1,0 +1,182 @@
+{
+  "name": "database_query_smart_v3",
+  "version": "3.0",
+  "description": "Complete iterative database query workflow with dynamic schema discovery and full context loading",
+  "trigger_patterns": [
+    "database query",
+    "query database",
+    "search database",
+    "find in database",
+    "list employees",
+    "show data",
+    "how many",
+    "count"
+  ],
+  "nodes": [
+    {
+      "id": "get_welcome",
+      "agent": "mcp_resource",
+      "resource_uri": "welcome://message",
+      "server_name": "database-query-server-railway",
+      "instruction": "Read welcome resource to get available tables, features, and common rules",
+      "depends_on": [],
+      "timeout": 30
+    },
+    {
+      "id": "identify_tables",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.1,
+        "max_tokens": 1000,
+        "system_prompt": "You are a database analyst. Analyze user queries to identify required tables for SQL operations. Output structured information in a specific format."
+      },
+      "instruction": "Analyze the user's query to identify which database tables are needed.\n\n## User Request\n{user_input}\n\n## Available Tables (from welcome message)\n{get_welcome}\n\n## Your Task\n\n1. **Understand the Query Intent**: What data is the user requesting?\n2. **Identify Primary Tables**: Which tables contain the main entities?\n3. **Identify Related Tables**: Are JOINs needed? Which related tables?\n4. **List Table Names**: Output EXACT table names as they appear in the welcome message\n\n## Output Format (STRICT)\n\nYou MUST output in this exact format:\n\ntables_needed: TableName1,TableName2,TableName3\nreasoning: Brief explanation of why these tables are needed\n\n**Example 1**:\nUser: \"List all active employees\"\nOutput:\ntables_needed: Person\nreasoning: Query requests employee data which is stored in Person table\n\n**Example 2**:\nUser: \"Show customers with their recent orders\"\nOutput:\ntables_needed: Customer,SalesOrder\nreasoning: Customers table for customer data, SalesOrder table for order information, JOIN needed\n\n**Example 3**:\nUser: \"Count total revenue by salesperson\"\nOutput:\ntables_needed: Person,SalesOrder,SalesOrderDetail\nreasoning: Person for salesperson, SalesOrder to link orders, SalesOrderDetail for revenue calculations\n\n## Critical Rules\n\n- Use EXACT table names from welcome message (case-sensitive)\n- Separate multiple tables with commas (no spaces)\n- Include ALL tables that might be needed for JOINs\n- Keep reasoning brief (1-2 sentences)\n\nGenerate your analysis now:",
+      "depends_on": ["get_welcome"],
+      "timeout": 60
+    },
+    {
+      "id": "get_table_details_1",
+      "agent": "mcp_tool",
+      "tool_name": "get_table_details",
+      "server_name": "database-query-server-railway",
+      "instruction": "{@extract:identify_tables:tables_needed}",
+      "depends_on": ["identify_tables"],
+      "timeout": 60
+    },
+    {
+      "id": "evaluate_schema",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.1,
+        "max_tokens": 1000,
+        "system_prompt": "You are a database schema analyst. Evaluate if current schema information is sufficient for query generation."
+      },
+      "instruction": "Evaluate if the current schema information is sufficient to generate the user's query.\n\n## User Request\n{user_input}\n\n## Tables Identified\n{identify_tables}\n\n## Schema Details Received\n{get_table_details_1}\n\n## Your Task\n\n1. **Review Schema**: Do the current tables have all needed columns?\n2. **Check Relationships**: Are JOIN keys present in the schema?\n3. **Identify Gaps**: Are there missing tables or columns?\n4. **Determine Sufficiency**: Can we build the complete query now?\n\n## Output Format (STRICT - Used for Routing)\n\n**If Schema is Sufficient**:\nschema_complete: true\nconfidence: high\nreasoning: Brief explanation\n\n**If More Tables Needed**:\nschema_complete: false\nadditional_tables: TableName4,TableName5\nreasoning: Explain what's missing and why additional tables are needed\n\n## Examples\n\n**Example 1 - Sufficient**:\nUser: \"List active employees\"\nCurrent schema: Person table with status, firstname, lastname columns\nOutput:\nschema_complete: true\nconfidence: high\nreasoning: Person table contains all required columns for the query\n\n**Example 2 - Insufficient**:\nUser: \"Show customers with their orders\"\nCurrent schema: Customer table only\nOutput:\nschema_complete: false\nadditional_tables: SalesOrder\nreasoning: Need SalesOrder table to JOIN customer orders\n\n**Critical Rules**:\n- The field \"schema_complete\" MUST be exactly \"true\" or \"false\"\n- This field controls workflow routing\n- If unsure, set to false and request more tables\n- Provide clear reasoning for your decision\n\nGenerate your evaluation now:",
+      "depends_on": ["get_table_details_1"],
+      "timeout": 60
+    },
+    {
+      "id": "get_table_details_2",
+      "agent": "mcp_tool",
+      "tool_name": "get_table_details",
+      "server_name": "database-query-server-railway",
+      "instruction": "{@extract:evaluate_schema:additional_tables}",
+      "depends_on": ["evaluate_schema"],
+      "timeout": 60
+    },
+    {
+      "id": "identify_features",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.1,
+        "max_tokens": 1000,
+        "system_prompt": "You are a SQL expert. Identify which SQL features are needed to construct a database query."
+      },
+      "instruction": "Identify which SQL features are needed to construct the user's query.\n\n## User Request\n{user_input}\n\n## Tables and Schema Available\nInitial tables: {identify_tables}\nInitial schema: {get_table_details_1}\nAdditional schema (if any): {get_table_details_2}\n\n## Available SQL Features (from welcome message)\n{get_welcome}\n\n## Your Task\n\n1. **Analyze Query Complexity**: What SQL operations are needed?\n2. **Identify Required Features**: Which features from the available list?\n3. **Consider Edge Cases**: Special conditions, aggregations, sorting?\n\n## Common Features\n\n- **SELECT**: Basic column selection (always needed)\n- **WHERE**: Filtering by conditions\n- **WHERE_IN**: Filtering by list of values\n- **WHERE_LIKE**: Pattern matching\n- **JOIN**: Combining tables\n- **LEFT_JOIN**: Include unmatched records\n- **GROUP_BY**: Aggregation grouping\n- **HAVING**: Filter aggregated results\n- **ORDER_BY**: Sorting results\n- **LIMIT**: Restrict number of results\n- **COUNT/SUM/AVG**: Aggregation functions\n- **DISTINCT**: Remove duplicates\n\n## Output Format (STRICT)\n\nfeatures_needed: FEATURE1,FEATURE2,FEATURE3\nreasoning: Brief explanation\n\n## Examples\n\n**Example 1**:\nUser: \"List all active employees\"\nOutput:\nfeatures_needed: SELECT,WHERE,LIMIT\nreasoning: SELECT for columns, WHERE to filter active status, LIMIT to restrict results\n\n**Example 2**:\nUser: \"Show customers with orders over $1000\"\nOutput:\nfeatures_needed: SELECT,JOIN,WHERE,LIMIT\nreasoning: SELECT for data, JOIN to connect Customer and SalesOrder, WHERE for amount filter\n\n**Example 3**:\nUser: \"Count employees by department\"\nOutput:\nfeatures_needed: SELECT,COUNT,GROUP_BY\nreasoning: COUNT for aggregation, GROUP_BY to group by department\n\n**Critical Rules**:\n- List features in UPPERCASE\n- Separate with commas (no spaces)\n- Only include features that are ACTUALLY needed\n- Always consider LIMIT for queries returning multiple rows\n\nGenerate your analysis now:",
+      "depends_on": ["evaluate_schema"],
+      "timeout": 60
+    },
+    {
+      "id": "get_feature_details",
+      "agent": "mcp_tool",
+      "tool_name": "get_feature_details",
+      "server_name": "database-query-server-railway",
+      "instruction": "{@extract:identify_features:features_needed}",
+      "depends_on": ["identify_features"],
+      "timeout": 60
+    },
+    {
+      "id": "generate_query",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.1,
+        "max_tokens": 2000,
+        "system_prompt": "You are a SQL query expert. Generate JSON database queries using EXACT schema information and feature syntax. Output ONLY valid JSON with no markdown wrappers.",
+        "include_workflow_history": true,
+        "history_nodes": ["check_result"]
+      },
+      "instruction": "Generate a JSON database query based on the user's request with COMPLETE context.\n\n## User Request\n{user_input}\n\n## Complete Context Available\n\n### Tables Identified\n{identify_tables}\n\n### Complete Schema Details\n**Initial tables schema**:\n{get_table_details_1}\n\n**Additional tables schema (if requested)**:\n{get_table_details_2}\n\n### Schema Evaluation\n{evaluate_schema}\n\n### Features Identified\n{identify_features}\n\n### Feature Syntax Documentation\n{get_feature_details}\n\n### Previous Error Analysis (if this is a retry)\n{@latest:check_result}\n\n## Your Task\n\n**IF THIS IS A RETRY** (you see error analysis above with 'has_error: true'):\n- The previous query was REJECTED by the database\n- Read the error_message and error_hint CAREFULLY\n- The hint tells you EXACTLY what to fix\n- Generate a CORRECTED query addressing the specific issue\n\n**IF THIS IS THE FIRST ATTEMPT** (no error analysis above):\n\n1. **Use EXACT Schema Information**:\n   - Table names: Use EXACT case from schema (e.g., \"Person\" not \"person\")\n   - Column names: Use EXACT names from schema (e.g., \"FirstName\" not \"firstname\")\n   - Check column types for appropriate operations\n\n2. **Follow Feature Syntax**:\n   - Use the EXACT syntax from feature documentation\n   - JOIN syntax: {\"table\": \"TableName\", \"first\": \"t1.column\", \"second\": \"t2.column\"}\n   - WHERE syntax: {\"column\": \"value\"}\n   - Aggregation: Use correct function names\n\n3. **Apply Query Rules**:\n   - ALWAYS include LIMIT for multi-row results (default: 10-50)\n   - Use proper JOIN keys from schema relationships\n   - Only SELECT operations allowed (no INSERT/UPDATE/DELETE)\n   - Validate all column names exist in their tables\n\n## Query Format\n\nOutput ONLY the JSON query (NOT wrapped in {\"json_query\": ...}).\n\n**Basic Structure**:\n```json\n{\"table\":\"TableName\",\"select\":[\"column1\",\"column2\"],\"where\":{\"column\":\"value\"},\"limit\":10}\n```\n\n**Common Patterns**:\n\n**Simple Filter**:\n```json\n{\"table\":\"Person\",\"select\":[\"FirstName\",\"LastName\"],\"where\":{\"Status\":\"Active\"},\"limit\":20}\n```\n\n**JOIN Pattern**:\n```json\n{\"table\":\"Customer\",\"select\":[\"Customer.Name\",\"SalesOrder.OrderDate\"],\"join\":[{\"table\":\"SalesOrder\",\"first\":\"Customer.CustomerID\",\"second\":\"SalesOrder.CustomerID\"}],\"limit\":50}\n```\n\n**Aggregation Pattern**:\n```json\n{\"table\":\"SalesOrder\",\"select\":[\"SalesPersonID\"],\"count\":\"*\",\"groupBy\":\"SalesPersonID\"}\n```\n\n**WHERE IN Pattern**:\n```json\n{\"table\":\"Person\",\"select\":[\"PersonID\",\"FirstName\"],\"whereIn\":{\"PersonID\":[1,2,3]},\"limit\":10}\n```\n\n**LIKE Pattern**:\n```json\n{\"table\":\"Person\",\"select\":[\"FirstName\",\"LastName\"],\"whereLike\":{\"FirstName\":\"%john%\"},\"limit\":20}\n```\n\n## Critical Validation Checklist\n\n- [ ] Table name matches EXACT case from schema\n- [ ] ALL column names match EXACT case from schema\n- [ ] JOIN keys reference correct columns with table prefixes\n- [ ] LIMIT is included for multi-row queries\n- [ ] Only SELECT operations used\n- [ ] Feature syntax matches documentation exactly\n- [ ] No markdown wrappers (no ```json or ```)\n\n## Error Recovery (for retries)\n\nIf you see an error from previous attempt:\n1. Read the error_hint - it tells you EXACTLY what's wrong\n2. Common errors:\n   - \"Table 'person' not found\" → Use correct case: \"Person\"\n   - \"Column 'firstname' not found in Person\" → Use \"FirstName\"\n   - \"Invalid JOIN key\" → Check schema for correct foreign key names\n   - \"Syntax error in WHERE\" → Follow exact WHERE syntax from features\n\nGenerate the JSON query now (no wrapper, no markdown):",
+      "depends_on": ["get_feature_details"],
+      "timeout": 120
+    },
+    {
+      "id": "execute_query",
+      "agent": "mcp_tool",
+      "tool_name": "execute_query",
+      "server_name": "database-query-server-railway",
+      "instruction": "{generate_query}",
+      "depends_on": ["generate_query"],
+      "timeout": 60
+    },
+    {
+      "id": "check_result",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.0,
+        "system_prompt": "You are a precise JSON response analyzer. Parse MCP responses and output EXACT structured status information following the specified format."
+      },
+      "instruction": "Analyze the MCP query execution result and determine if it succeeded or failed.\n\n## Result from MCP\n{execute_query}\n\n## MCP Response Format\n\nThe MCP server returns JSON in one of two formats:\n\n**Success**: {\"success\": true, \"count\": N, \"data\": [...]}\n**Error**: {\"success\": false, \"error\": {\"message\": \"...\", \"details\": \"...\", \"hint\": \"...\"}}\n\n## Your Task\n\n1. Parse the JSON response\n2. Check the \"success\" field\n3. Extract error details if present\n4. Categorize the error type\n5. Extract the hint (CRITICAL for retry)\n\n## Output Format (STRICT - Used for Conditional Routing)\n\n**If Error Detected**:\nhas_error: true\nerror_type: <table_not_found|column_not_found|syntax_error|join_error|type_mismatch|other>\nerror_message: <exact error text from MCP>\nerror_hint: <exact hint from MCP - THIS IS CRITICAL FOR CORRECTION>\n\n**If Successful**:\nhas_error: false\nrow_count: <number of rows returned>\ndata_summary: <brief description>\n\n**IMPORTANT**: The \"has_error\" field MUST be exactly \"true\" or \"false\". This controls workflow routing.\n\n## Error Type Categories\n\n- **table_not_found**: Table name doesn't exist or wrong case\n- **column_not_found**: Column name doesn't exist or wrong case\n- **syntax_error**: Query JSON structure is invalid\n- **join_error**: JOIN keys are invalid or missing\n- **type_mismatch**: Data type incompatibility\n- **other**: Any other error\n\n## Examples\n\n**Example 1 - Error**:\nMCP Response: {\"success\": false, \"error\": {\"message\": \"Table 'person' not found\", \"hint\": \"Did you mean 'Person'? (case-sensitive)\"}}\nOutput:\nhas_error: true\nerror_type: table_not_found\nerror_message: Table 'person' not found\nerror_hint: Did you mean 'Person'? (case-sensitive)\n\n**Example 2 - Success**:\nMCP Response: {\"success\": true, \"count\": 15, \"data\": [{\"FirstName\": \"John\"}, ...]}\nOutput:\nhas_error: false\nrow_count: 15\ndata_summary: Retrieved 15 person records with name information\n\nOutput your analysis now:",
+      "depends_on": ["execute_query"],
+      "timeout": 30
+    },
+    {
+      "id": "format_results",
+      "agent": "llm",
+      "llm_config": {
+        "provider": "openrouter",
+        "model": "deepseek/deepseek-v3.2-exp",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "system_prompt": "You are a technical writer. Format database query results in clear, user-friendly prose. Be conversational and helpful."
+      },
+      "instruction": "Format the successful database query results for the user.\n\n## Original User Request\n{user_input}\n\n## Query Executed\n{generate_query}\n\n## Results from Database (may be truncated if large)\n{execute_query}\n\n## Your Task\n\nCreate a clear, professional response that:\n1. Directly answers the user's question\n2. Presents data in readable format (tables, lists, or prose)\n3. Highlights key insights if relevant\n4. Uses conversational, helpful tone\n\n**Do NOT include**: Technical query details, JSON syntax, debugging info, table/column names unless relevant\n\n## Format Guidelines\n\n**For List Queries** (e.g., \"List employees\"):\n- Use markdown tables for structured data\n- Include relevant columns only\n- Add row count summary\n\n**For Count Queries** (e.g., \"How many customers\"):\n- Lead with the number in bold\n- Provide context and breakdown if applicable\n- Use simple prose\n\n**For Analytical Queries** (e.g., \"Show revenue by region\"):\n- Use bullet lists for key insights\n- Highlight top/bottom performers\n- Include totals or averages if relevant\n\n**For Join Queries** (e.g., \"Customers with orders\"):\n- Present relationships clearly\n- Use nested lists or tables\n- Explain connections in plain language\n\n## Examples\n\n**Example 1 - Simple List**:\nUser: \"List active employees\"\nQuery result: 12 rows with FirstName, LastName\nGood response:\n\"I found 12 active employees:\n\n| First Name | Last Name |\n|------------|------------|\n| John       | Smith      |\n| Jane       | Doe        |\n...\n\nTotal: 12 active employees\"\n\n**Example 2 - Count**:\nUser: \"How many customers do we have?\"\nQuery result: {count: 245}\nGood response:\n\"You currently have **245 customers** in the database.\"\n\n**Example 3 - Analytical**:\nUser: \"Show revenue by salesperson\"\nQuery result: Aggregated data\nGood response:\n\"Here's the revenue breakdown by salesperson:\n\n• **Top performer**: Sarah Johnson - $1.2M\n• Michael Chen - $980K\n• Emily Davis - $750K\n\nTotal revenue: $2.93M across 3 salespeople.\"\n\nGenerate your response now:",
+      "depends_on": ["check_result"],
+      "timeout": 60
+    }
+  ],
+  "conditional_edges": [
+    {
+      "from_node": "evaluate_schema",
+      "conditions": [
+        {
+          "field": "custom_metadata.schema_complete",
+          "operator": "equals",
+          "value": true,
+          "next_node": "identify_features"
+        }
+      ],
+      "default": "get_table_details_2"
+    },
+    {
+      "from_node": "get_table_details_2",
+      "conditions": [],
+      "default": "identify_features"
+    },
+    {
+      "from_node": "check_result",
+      "conditions": [
+        {
+          "field": "custom_metadata.has_error",
+          "operator": "equals",
+          "value": false,
+          "next_node": "format_results"
+        }
+      ],
+      "default": "generate_query"
+    }
+  ],
+  "parameters": {
+    "user_input": "List all active employees",
+    "max_retries": 5
+  }
+}

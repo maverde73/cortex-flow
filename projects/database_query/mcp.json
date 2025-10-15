@@ -6,27 +6,210 @@
     "health_check_interval": 60
   },
   "servers": {
-    "corporate": {
+    "database-query-server-railway": {
       "type": "remote",
       "transport": "streamable_http",
-      "url": "http://localhost:8005/mcp",
-      "api_key": null,
-      "local_path": null,
-      "enabled": true,
-      "timeout": 60,
-      "prompts_file": "/home/mverde/src/taal/mcp-servers/cortex-flow/projects/database_query/PROMPT_CONDENSED.md",
-      "prompt_tool_association": "json_query_sse",
-      "description": "Corporate database query tool - Converts natural language to JSON queries for PostgreSQL database with employees, projects, certifications, assessments, and more."
-    },
-    "query-mcp": {
-      "type": "remote",
-      "transport": "streamable_http",
-      "url": "http://localhost:8005/mcp",
-      "api_key": null,
+      "url": "https://mcpjson2data-production.up.railway.app/mcp",
+      "api_key": "oWJtbqYNKM4dJ10t4EDdgkQKu5fgwYccxdtDTVOemKY",
       "local_path": null,
       "command": null,
       "enabled": true,
-      "timeout": 60
+      "timeout": 300,
+      "status": "healthy",
+      "test_results": {
+        "connection": {
+          "success": true,
+          "data": {
+            "serverInfo": {
+              "name": "Database Query Server",
+              "version": "1.17.0"
+            },
+            "capabilities": {
+              "experimental": {},
+              "prompts": {
+                "listChanged": false
+              },
+              "resources": {
+                "subscribe": false,
+                "listChanged": false
+              },
+              "tools": {
+                "listChanged": false
+              }
+            },
+            "sessionId": "ae11177792184eb686dc8a97abbf053f",
+            "protocolVersion": "2025-03-26"
+          },
+          "error": null,
+          "metadata": {
+            "transport": "streamable_http",
+            "stateful": true
+          }
+        },
+        "tools": {
+          "success": true,
+          "data": {
+            "tools": [
+              {
+                "name": "get_table_details",
+                "description": "\nOttiene i dettagli completi di una o più tabelle.\n\nArgs:\n    table_names: Nome/i delle tabelle (singolo: \"Person\" oppure multipli: \"Person,Customer,Project\")\n\nReturns:\n    Documentazione completa delle tabelle richieste\n",
+                "inputSchema": {
+                  "properties": {
+                    "table_names": {
+                      "title": "Table Names",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "table_names"
+                  ],
+                  "title": "get_table_detailsArguments",
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "title": "Result",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "title": "get_table_detailsOutput",
+                  "type": "object"
+                }
+              },
+              {
+                "name": "get_feature_details",
+                "description": "\nOttiene la documentazione di una o più funzionalità della query JSON.\n\nArgs:\n    feature_names: Nome/i features (singolo: \"where\" oppure multipli: \"where,whereIn,join\")\n\nReturns:\n    Documentazione delle funzionalità richieste (ottimizzata per file condivisi)\n",
+                "inputSchema": {
+                  "properties": {
+                    "feature_names": {
+                      "title": "Feature Names",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "feature_names"
+                  ],
+                  "title": "get_feature_detailsArguments",
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "title": "Result",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "title": "get_feature_detailsOutput",
+                  "type": "object"
+                }
+              },
+              {
+                "name": "execute_query",
+                "description": "\nEsegue una query JSON sul database PostgreSQL e restituisce i risultati in formato JSON strutturato.\n\nArgs:\n    json_query: Query in formato JSON secondo le specifiche API\n\nReturns:\n    Risultato in formato JSON strutturato:\n\n    SUCCESS (query normale):\n    {\n        \"success\": true,\n        \"count\": N,\n        \"data\": [{\"field1\": \"value1\", ...}, ...],\n        \"query\": {...}\n    }\n\n    SUCCESS (first: true - singolo oggetto):\n    {\n        \"success\": true,\n        \"count\": 1,\n        \"data\": {\"field1\": \"value1\", ...},\n        \"query\": {...}\n    }\n\n    SUCCESS (pluck - array di valori):\n    {\n        \"success\": true,\n        \"count\": N,\n        \"data\": [\"value1\", \"value2\", ...],\n        \"query\": {...}\n    }\n\n    ERROR:\n    {\n        \"success\": false,\n        \"error\": {\n            \"message\": \"Error description\",\n            \"details\": {...},\n            \"hint\": \"Suggestion to fix\"\n        },\n        \"query\": {...}\n    }\n",
+                "inputSchema": {
+                  "properties": {
+                    "json_query": {
+                      "title": "Json Query",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "json_query"
+                  ],
+                  "title": "execute_queryArguments",
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "properties": {
+                    "result": {
+                      "title": "Result",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ],
+                  "title": "execute_queryOutput",
+                  "type": "object"
+                }
+              }
+            ]
+          },
+          "error": null,
+          "metadata": {
+            "method": "tools/list",
+            "sessionId": "ae11177792184eb686dc8a97abbf053f"
+          }
+        },
+        "prompts": {
+          "success": true,
+          "data": {
+            "prompts": [
+              {
+                "name": "query_builder_prompt",
+                "description": "\nGenera un prompt per aiutare a costruire query corrette.\n\nArgs:\n    table: Nome della tabella target\n    operation: Tipo di operazione (select, filter, join, etc.)\n",
+                "arguments": [
+                  {
+                    "name": "table",
+                    "required": true
+                  },
+                  {
+                    "name": "operation",
+                    "required": false
+                  }
+                ]
+              },
+              {
+                "name": "validation_prompt",
+                "description": "Prompt per validare una query prima dell'esecuzione.",
+                "arguments": []
+              },
+              {
+                "name": "common_errors_prompt",
+                "description": "\nDocumenta i problemi più comuni trovati durante l'analisi del database.\nAiuta l'LLM a evitare errori tipici nelle query.\n",
+                "arguments": []
+              }
+            ]
+          },
+          "error": null,
+          "metadata": {
+            "method": "prompts/list",
+            "sessionId": "ae11177792184eb686dc8a97abbf053f"
+          }
+        },
+        "resources": {
+          "success": true,
+          "data": {
+            "resources": [
+              {
+                "name": "get_welcome_resource",
+                "uri": "welcome://message",
+                "description": "Fornisce il messaggio di benvenuto con tutte le informazioni del server.",
+                "mimeType": "text/plain"
+              },
+              {
+                "name": "get_response_format_documentation",
+                "uri": "response-format://documentation",
+                "description": "\nFornisce la documentazione completa del formato JSON di risposta.\n\nReturns:\n    Documentazione dettagliata del formato delle risposte JSON\n",
+                "mimeType": "text/plain"
+              }
+            ]
+          },
+          "error": null,
+          "metadata": {
+            "method": "resources/list",
+            "sessionId": "ae11177792184eb686dc8a97abbf053f"
+          }
+        }
+      },
+      "last_tested": "2025-10-11T21:41:57.370980Z"
     }
   },
   "tools_enable_logging": true,

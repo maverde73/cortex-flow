@@ -26,36 +26,39 @@ workflow_file_logger.addHandler(file_handler)
 workflow_file_logger.propagate = False
 
 
-def log_node_start(node_id: str, agent: str, retry: int, max_retries: int, instruction: str):
+def log_node_start(node_id: str, agent: str, retry: int, max_retries: int, instruction: str, execution_id: str = None):
     """Log the start of node execution."""
+    exec_prefix = f"[exec:{execution_id[:8]}] " if execution_id else ""
     workflow_file_logger.info("=" * 80)
-    workflow_file_logger.info(f"🚀 NODE START: {node_id}")
-    workflow_file_logger.info(f"   Agent: {agent}")
-    workflow_file_logger.info(f"   Retry: {retry}/{max_retries}")
-    workflow_file_logger.info(f"   Instruction (first 200 chars):")
-    workflow_file_logger.info(f"   {instruction[:200]}...")
+    workflow_file_logger.info(f"{exec_prefix}🚀 NODE START: {node_id}")
+    workflow_file_logger.info(f"{exec_prefix}   Agent: {agent}")
+    workflow_file_logger.info(f"{exec_prefix}   Retry: {retry}/{max_retries}")
+    workflow_file_logger.info(f"{exec_prefix}   Instruction (first 200 chars):")
+    workflow_file_logger.info(f"{exec_prefix}   {instruction[:200]}...")
     workflow_file_logger.info("=" * 80)
 
 
-def log_node_complete(node_id: str, execution_time: float, output: str):
+def log_node_complete(node_id: str, execution_time: float, output: str, execution_id: str = None):
     """Log the completion of node execution."""
+    exec_prefix = f"[exec:{execution_id[:8]}] " if execution_id else ""
     workflow_file_logger.info("-" * 80)
-    workflow_file_logger.info(f"✅ NODE COMPLETE: {node_id}")
-    workflow_file_logger.info(f"   Execution time: {execution_time:.2f}s")
-    workflow_file_logger.info(f"   Output length: {len(output)} chars")
-    workflow_file_logger.info(f"   Output preview (first 500 chars):")
-    workflow_file_logger.info(f"   {output[:500]}")
+    workflow_file_logger.info(f"{exec_prefix}✅ NODE COMPLETE: {node_id}")
+    workflow_file_logger.info(f"{exec_prefix}   Execution time: {execution_time:.2f}s")
+    workflow_file_logger.info(f"{exec_prefix}   Output length: {len(output)} chars")
+    workflow_file_logger.info(f"{exec_prefix}   Output preview (first 500 chars):")
+    workflow_file_logger.info(f"{exec_prefix}   {output[:500]}")
     if len(output) > 500:
-        workflow_file_logger.info(f"   ... (truncated, {len(output) - 500} more chars)")
+        workflow_file_logger.info(f"{exec_prefix}   ... (truncated, {len(output) - 500} more chars)")
     workflow_file_logger.info("-" * 80)
 
 
-def log_node_error(node_id: str, error: Exception):
+def log_node_error(node_id: str, error: Exception, execution_id: str = None):
     """Log node execution error."""
+    exec_prefix = f"[exec:{execution_id[:8]}] " if execution_id else ""
     workflow_file_logger.error("!" * 80)
-    workflow_file_logger.error(f"❌ NODE ERROR: {node_id}")
-    workflow_file_logger.error(f"   Error type: {type(error).__name__}")
-    workflow_file_logger.error(f"   Error message: {str(error)}")
+    workflow_file_logger.error(f"{exec_prefix}❌ NODE ERROR: {node_id}")
+    workflow_file_logger.error(f"{exec_prefix}   Error type: {type(error).__name__}")
+    workflow_file_logger.error(f"{exec_prefix}   Error message: {str(error)}")
     workflow_file_logger.error("!" * 80)
 
 

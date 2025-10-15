@@ -39,17 +39,76 @@ class ConditionalEdge(BaseModel):
     default: str = Field(..., description="Default node if no condition matches")
 
 
+class LLMConfig(BaseModel):
+    """
+    Configuration for direct LLM invocation in workflows.
+
+    Allows workflows to directly invoke LLMs without agent wrappers,
+    with full control over provider, model, and generation parameters.
+    """
+    provider: str = Field(
+        ...,
+        description="LLM provider: openai, anthropic, openrouter, groq, google"
+    )
+    model: str = Field(
+        ...,
+        description="Model identifier (provider-specific). Examples: gpt-4-turbo, claude-3.5-sonnet, llama-3.1-8b-instant"
+    )
+
+    # Generation parameters
+    temperature: Optional[float] = Field(
+        default=0.7,
+        description="Sampling temperature (0.0-2.0). Lower = more focused, higher = more creative"
+    )
+    max_tokens: Optional[int] = Field(
+        default=None,
+        description="Maximum tokens in response"
+    )
+    top_p: Optional[float] = Field(
+        default=None,
+        description="Nucleus sampling parameter"
+    )
+
+    # Context management
+    system_prompt: Optional[str] = Field(
+        default=None,
+        description="System prompt to set context/role for the LLM"
+    )
+    include_workflow_history: bool = Field(
+        default=False,
+        description="Include previous node outputs as conversation context"
+    )
+    history_nodes: Optional[List[str]] = Field(
+        default=None,
+        description="Specific node IDs to include in history. If None, includes all completed nodes."
+    )
+
+
 class WorkflowNode(BaseModel):
     """Workflow node definition"""
     id: str = Field(..., description="Unique node identifier")
-    agent: str = Field(..., description="Agent to execute (researcher, analyst, writer, mcp_tool, workflow, library)")
+    agent: str = Field(
+        ...,
+        description=(
+            "Agent/executor type: llm (direct LLM), mcp_tool (MCP tool), "
+            "mcp_resource (MCP resource), workflow (sub-workflow), library (Python library)"
+        )
+    )
     instruction: str = Field(..., description="Instruction template (can use {variables})")
     depends_on: List[str] = Field(default_factory=list, description="Node dependencies")
     parallel_group: Optional[str] = Field(None, description="Parallel execution group")
     timeout: int = Field(120, description="Timeout in seconds")
+
+    # LLM-specific configuration
+    llm_config: Optional[LLMConfig] = Field(
+        None,
+        description="Direct LLM configuration (required if agent=llm)"
+    )
+
+    # MCP-specific fields
     tool_name: Optional[str] = Field(None, description="MCP tool name (if agent=mcp_tool)")
-    params: Dict[str, Any] = Field(default_factory=dict, description="Additional parameters")
-    template: Optional[str] = Field(None, description="Template name for writer")
+    resource_uri: Optional[str] = Field(None, description="MCP resource URI (if agent=mcp_resource)")
+    server_name: Optional[str] = Field(None, description="MCP server name (for mcp_tool or mcp_resource)")
     use_mcp_prompt: bool = Field(
         default=False,
         description=(
@@ -57,14 +116,20 @@ class WorkflowNode(BaseModel):
             "Only applies when agent='mcp_tool' and MCP server provides prompts"
         )
     )
-    # New fields for workflow composition
+
+    # Workflow composition fields
     workflow_name: Optional[str] = Field(None, description="Workflow name to execute (if agent=workflow)")
     workflow_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters to pass to sub-workflow")
     max_depth: int = Field(5, description="Maximum recursion depth for nested workflows")
-    # New fields for library integration
+
+    # Library integration fields
     library_name: Optional[str] = Field(None, description="Library name (if agent=library)")
     function_name: Optional[str] = Field(None, description="Function name to call in the library")
     function_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters to pass to the library function")
+
+    # Legacy/additional fields
+    params: Dict[str, Any] = Field(default_factory=dict, description="Additional parameters")
+    template: Optional[str] = Field(None, description="Template name for writer")
 
 
 class WorkflowTemplate(BaseModel):
@@ -115,6 +180,7 @@ class WorkflowResult(BaseModel):
     execution_log: List[WorkflowExecutionLog]
     node_results: List[NodeExecutionResult]
     total_execution_time: float
+    execution_id: Optional[str] = None  # UUID for log retrieval
     error: Optional[str] = None
 
 

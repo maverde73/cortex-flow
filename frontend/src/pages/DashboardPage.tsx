@@ -39,12 +39,12 @@ export function DashboardPage() {
 
   const projectsCount = projects?.length || 0;
   const workflowsCount = workflows?.length || 0;
-  const agentsCount = agentsConfig?.agents?.length || 0;
+  const agentsCount = Object.keys(agentsConfig?.agents || {}).length;
   const mcpServersCount = Object.keys(mcpConfig?.servers || {}).length;
   const promptsCount =
-    (promptsInfo?.system_prompt ? 1 : 0) +
-    (promptsInfo?.agent_prompts?.length || 0) +
-    (promptsInfo?.mcp_prompts?.length || 0);
+    (promptsInfo?.system ? 1 : 0) +
+    Object.keys(promptsInfo?.agents || {}).length +
+    Object.keys(promptsInfo?.mcp || {}).length;
 
   return (
     <div className="p-6">

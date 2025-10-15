@@ -102,8 +102,19 @@ class WorkflowEngine:
         - Human-in-the-loop via interrupt()
         - LangSmith tracing
         """
+        import uuid
+
         start_time = time.time()
         params = params or {}
+
+        # Generate unique execution ID for tracking
+        execution_id = str(uuid.uuid4())
+        exec_id_short = execution_id[:8]  # Short version for logs
+
+        # Initialize state tracking variables before try block
+        # so they're available in except handler if execution fails
+        result_state = {}
+        node_results = []
 
         try:
             # Lazy-load compiler
@@ -116,6 +127,7 @@ class WorkflowEngine:
 
             # Prepare initial state
             initial_state = {
+                "execution_id": execution_id,
                 "user_input": user_input,
                 "workflow_name": template.name,
                 "workflow_params": {**template.parameters, **params},
@@ -127,28 +139,28 @@ class WorkflowEngine:
                 "max_retries": 3
             }
 
-            logger.debug(f"📋 Initial state prepared: {list(initial_state.keys())}")
-            logger.debug(f"   user_input: {user_input[:100]}...")
-            logger.debug(f"   workflow_params: {initial_state['workflow_params']}")
+            logger.debug(f"📋 [exec:{exec_id_short}] Initial state prepared: {list(initial_state.keys())}")
+            logger.debug(f"   [exec:{exec_id_short}] user_input: {user_input[:100]}...")
+            logger.debug(f"   [exec:{exec_id_short}] workflow_params: {initial_state['workflow_params']}")
 
             # Execute compiled graph
-            logger.info(f"🚀 Executing LangGraph workflow '{template.name}'")
+            logger.info(f"🚀 [exec:{exec_id_short}] Executing LangGraph workflow '{template.name}'")
             result_state = await compiled_graph.ainvoke(initial_state)
-            logger.info(f"🏁 LangGraph execution completed")
+            logger.info(f"🏁 [exec:{exec_id_short}] LangGraph execution completed")
 
             # Extract results
             execution_time = time.time() - start_time
 
-            logger.debug(f"📊 Result state keys: {list(result_state.keys())}")
-            logger.debug(f"   completed_nodes: {result_state.get('completed_nodes', [])}")
-            logger.debug(f"   node_outputs keys: {list(result_state.get('node_outputs', {}).keys())}")
+            logger.debug(f"📊 [exec:{exec_id_short}] Result state keys: {list(result_state.keys())}")
+            logger.debug(f"   [exec:{exec_id_short}] completed_nodes: {result_state.get('completed_nodes', [])}")
+            logger.debug(f"   [exec:{exec_id_short}] node_outputs keys: {list(result_state.get('node_outputs', {}).keys())}")
 
             # Get final output (last completed node)
             final_output = ""
             if result_state.get("completed_nodes"):
                 last_node = result_state["completed_nodes"][-1]
                 final_output = result_state["node_outputs"].get(last_node, "")
-                logger.debug(f"   final_output from node '{last_node}': {len(final_output)} chars")
+                logger.debug(f"   [exec:{exec_id_short}] final_output from node '{last_node}': {len(final_output)} chars")
 
             # Build node results from history
             node_results = []
@@ -164,7 +176,7 @@ class WorkflowEngine:
                     ))
 
             logger.info(
-                f"✅ LangGraph workflow '{template.name}' completed in {execution_time:.2f}s "
+                f"✅ [exec:{exec_id_short}] LangGraph workflow '{template.name}' completed in {execution_time:.2f}s "
                 f"({len(node_results)} nodes executed)"
             )
 
@@ -175,20 +187,43 @@ class WorkflowEngine:
                 execution_log=result_state.get("workflow_history", []),
                 node_results=node_results,
                 total_execution_time=execution_time,
+                execution_id=execution_id,  # Pass execution_id for log retrieval
                 error=result_state.get("error")
             )
 
         except Exception as e:
             execution_time = time.time() - start_time
-            logger.error(f"❌ LangGraph workflow '{template.name}' failed: {e}")
+            logger.error(f"❌ [exec:{exec_id_short}] LangGraph workflow '{template.name}' failed: {e}")
+
+            # Preserve execution history even on failure
+            # The workflow may have partially executed and logged steps before failing
+            execution_log = result_state.get("workflow_history", [])
+
+            # Build node results from whatever history was captured before failure
+            for log_entry in execution_log:
+                if log_entry.action == "executed":
+                    node_id = log_entry.node_id
+                    node_results.append(NodeExecutionResult(
+                        node_id=node_id,
+                        agent=log_entry.agent,
+                        output=result_state.get("node_outputs", {}).get(node_id, ""),
+                        execution_time=log_entry.details.get("execution_time", 0),
+                        success=True
+                    ))
+
+            logger.info(
+                f"📋 [exec:{exec_id_short}] Preserved {len(execution_log)} execution log entries and "
+                f"{len(node_results)} node results from failed workflow"
+            )
 
             return WorkflowResult(
                 workflow_name=template.name,
                 success=False,
                 final_output="",
-                execution_log=[],
-                node_results=[],
+                execution_log=execution_log,
+                node_results=node_results,
                 total_execution_time=execution_time,
+                execution_id=execution_id,  # Pass execution_id for log retrieval
                 error=str(e)
             )
 

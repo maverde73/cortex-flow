@@ -324,18 +324,51 @@ async def create_workflow_supervisor():
     # ROUTING NODE
     # =====================================================================
 
-    async def route_execution(state: SupervisorState) -> Literal["workflow_mode", "react_mode"]:
+    async def router_node(state: SupervisorState) -> Dict[str, Any]:
         """
-        Decide execution mode: workflow or ReAct.
+        Router node that performs auto-matching and updates state.
+
+        This node runs BEFORE routing decision and can modify the state
+        by setting workflow_template if auto-matching succeeds.
+
+        Returns:
+            State updates (workflow_template if matched)
+        """
+        # If workflow already specified, pass through
+        if state.get("workflow_template"):
+            logger.info(f"Using explicit workflow: {state['workflow_template']}")
+            return {}
+
+        # Check workflow mode setting
+        mode = state.get("workflow_mode", settings.workflow_mode)
+
+        # Auto-detect template only in hybrid/auto mode
+        if (mode == "hybrid" or mode == "auto") and settings.workflow_auto_classify and settings.workflow_enable:
+            user_message = state["messages"][0]
+            user_input = user_message.content if hasattr(user_message, "content") else str(user_message)
+
+            template = await workflow_registry.match_template(user_input)
+            if template:
+                logger.info(f"Auto-matched workflow: {template.name}")
+                # Return state update with workflow_template set
+                return {"workflow_template": template.name}
+
+        # No template matched or auto-classify disabled
+        return {}
+
+    def route_execution(state: SupervisorState) -> Literal["workflow_mode", "react_mode"]:
+        """
+        Simple routing decision based on state.
+
+        This runs AFTER router_node, so workflow_template is already set if matched.
 
         Priority:
         1. Explicit workflow_template → workflow mode
-        2. Auto-classify (if enabled) → workflow mode if matched
+        2. Mode setting → follow mode
         3. Fallback → ReAct mode
         """
-        # Check if workflow explicitly specified
+        # Check if workflow template is set (by router_node or explicitly)
         if state.get("workflow_template"):
-            logger.info(f"Using explicit workflow: {state['workflow_template']}")
             return "workflow_mode"
 
         # Check workflow mode setting
@@ -353,18 +386,8 @@ async def create_workflow_supervisor():
             return "react_mode"
 
         elif mode == "hybrid" or mode == "auto":
-            # Auto-detect template from user input
-            if settings.workflow_auto_classify and settings.workflow_enable:
-                user_message = state["messages"][0]
-                user_input = user_message.content if hasattr(user_message, "content") else str(user_message)
-
-                template = await workflow_registry.match_template(user_input)
-                if template:
-                    logger.info(f"Auto-matched workflow: {template.name}")
-                    state["workflow_template"] = template.name
-                    return "workflow_mode"
-
-            # No template matched, use ReAct
+            # Template already matched by router_node if applicable
+            # If we're here, no template was matched, use ReAct
             logger.info("No workflow matched, using ReAct mode")
             return "react_mode"
 
@@ -379,7 +402,7 @@ async def create_workflow_supervisor():
     workflow = StateGraph(SupervisorState)
 
     # Add nodes
-    workflow.add_node("router", lambda s: s)  # Pass-through for routing
+    workflow.add_node("router", router_node)  # Active router that does auto-matching
     workflow.add_node("workflow_executor", workflow_executor)
     workflow.add_node("react_agent", call_model)
     workflow.add_node("tools", execute_tools)
@@ -387,7 +410,7 @@ async def create_workflow_supervisor():
     # Set entry point
     workflow.set_entry_point("router")
 
-    # Routing from entry
+    # Routing from entry (router_node sets workflow_template, then route_execution decides path)
     workflow.add_conditional_edges(
         "router",
         route_execution,

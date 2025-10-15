@@ -47,7 +47,7 @@
     {
       "id": "generate_code",
       "agent": "writer",
-      "instruction": "Scrivi il codice completo per il progetto seguendo la strategia e la struttura definite in:\n{synthesize_strategy}",
+      "instruction": "Scrivi il codice completo per il progetto seguendo la strategia e la struttura definite in:\n{synthesize_strategy}\n\n**IMPORTANTE: Fornisci il CONTENUTO COMPLETO di ogni file del progetto.**\n\nPer ogni file, usa questo formato:\n\n--- FILE: percorso/nome_file.ext ---\n[contenuto completo del file]\n--- END FILE ---\n\nNON scrivere solo spiegazioni o descrizioni. Fornisci il codice COMPLETO e FUNZIONANTE di ogni file.",
       "depends_on": ["synthesize_strategy"]
     },
     {
@@ -65,7 +65,7 @@
     {
       "id": "refactor_code",
       "agent": "writer",
-      "instruction": "Migliora il codice:\n{generate_code}\n\nBasandoti sul seguente feedback di revisione:\n{review_code}\n\nFornisci una nuova versione del codice corretto.",
+      "instruction": "Migliora il codice:\n{@latest:generate_code}\n\nBasandoti sul seguente feedback di revisione:\n{@latest:review_code}\n\n**IMPORTANTE: Fornisci il CONTENUTO COMPLETO di ogni file migliorato.**\n\nPer ogni file, usa questo formato:\n\n--- FILE: percorso/nome_file.ext ---\n[contenuto completo del file migliorato]\n--- END FILE ---\n\nNON scrivere solo le modifiche o spiegazioni. Fornisci il codice COMPLETO e FUNZIONANTE di ogni file.",
       "depends_on": ["quality_gate"]
     },
     {
@@ -77,13 +77,13 @@
     {
       "id": "generate_tests",
       "agent": "analyst",
-      "instruction": "Il codice ha passato la revisione. Scrivi test unitari o di integrazione per il seguente codice, usando le best practice per il framework specificato:\n{generate_code}",
+      "instruction": "Il codice ha passato la revisione. Scrivi test unitari o di integrazione per il seguente codice FINALE (dopo il refactoring), usando le best practice per il framework specificato:\n{@latest:generate_code}\n\n**IMPORTANTE: Fornisci il CONTENUTO COMPLETO di ogni file di test.**\n\nPer ogni file di test, usa questo formato:\n\n--- FILE: percorso/test_nome.ext ---\n[contenuto completo del file di test]\n--- END FILE ---\n\nFornisci test COMPLETI e FUNZIONANTI.",
       "depends_on": ["quality_gate"]
     },
     {
       "id": "package_solution",
       "agent": "writer",
-      "instruction": "Assembla la soluzione finale. Includi:\n1. Il codice sorgente finale:\n{generate_code}\n2. I test generati:\n{generate_tests}\n3. Un file di dipendenze (es. requirements.txt) con le versioni esatte da {define_requirements}.\n4. Un file README.md con una breve descrizione del progetto e le istruzioni per l'installazione e l'avvio.",
+      "instruction": "Assembla la soluzione finale fornendo il CONTENUTO COMPLETO di TUTTI i file del progetto.\n\n**IMPORTANTE: NON scrivere solo un README o documentazione. Devi fornire il CODICE SORGENTE COMPLETO di OGNI FILE.**\n\nBasandoti su:\n- Codice finale (refactorato): {@latest:generate_code}\n- Test: {generate_tests}\n- Requisiti: {define_requirements}\n\nFornisci:\n\n1. **TUTTI i file di codice sorgente** con il loro CONTENUTO COMPLETO\n2. **TUTTI i file di test** con il loro CONTENUTO COMPLETO\n3. **File requirements.txt** (o package.json, ecc.) con le dipendenze esatte\n4. **File README.md** con istruzioni di installazione e avvio\n5. **File .env.example** se necessario per la configurazione\n6. **Qualsiasi altro file di configurazione** necessario (Dockerfile, docker-compose.yml, ecc.)\n\n**FORMATO OBBLIGATORIO per ogni file:**\n\n--- FILE: percorso/nome_file.ext ---\n[CONTENUTO COMPLETO DEL FILE - OGNI SINGOLA RIGA DI CODICE]\n--- END FILE ---\n\nRipeti questo formato per OGNI file del progetto. NON omettere nessun file. NON scrivere solo descrizioni.",
       "depends_on": ["generate_tests"]
     }
   ],

@@ -8,13 +8,11 @@ import { api } from '../services/api';
 import type { Workflow } from '../types/api';
 
 interface WorkflowGenerateModalProps {
-  projectName: string;
   onClose: () => void;
   onAccept: (workflow: Workflow) => void;
 }
 
 export function WorkflowGenerateModal({
-  projectName,
   onClose,
   onAccept,
 }: WorkflowGenerateModalProps) {
@@ -31,7 +29,6 @@ export function WorkflowGenerateModal({
     mutationFn: async () => {
       const response = await api.generateWorkflow({
         description,
-        project_name: projectName,
         agent_types: selectedAgents.length > 0 ? selectedAgents : undefined,
         mcp_servers: selectedMCPs.length > 0 ? selectedMCPs : undefined,
       });
@@ -228,19 +225,21 @@ export function WorkflowGenerateModal({
                 </div>
 
                 {/* Agents Summary */}
-                <div>
-                  <div className="text-sm text-gray-600 mb-2">Agents</div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.keys(generatedWorkflow.agents).map((agentName) => (
-                      <span
-                        key={agentName}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                      >
-                        {agentName}
-                      </span>
-                    ))}
+                {generatedWorkflow.agents && (
+                  <div>
+                    <div className="text-sm text-gray-600 mb-2">Agents</div>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.keys(generatedWorkflow.agents).map((agentName) => (
+                        <span
+                          key={agentName}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                        >
+                          {agentName}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* JSON Preview (Collapsed) */}

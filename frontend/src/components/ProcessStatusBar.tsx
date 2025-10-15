@@ -5,7 +5,6 @@
  * Click to start/stop agents. Auto-refreshes every 5 seconds.
  */
 
-import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import type { ProcessInfo } from '../types/api';
@@ -50,20 +49,12 @@ function ProcessBadge({ process, onToggle }: ProcessBadgeProps) {
 
 export function ProcessStatusBar() {
   const queryClient = useQueryClient();
-  const [selectedLogs, setSelectedLogs] = useState<string | null>(null);
 
   // Fetch process status every 5 seconds
   const { data: processes = [] } = useQuery({
     queryKey: ['processes-status'],
     queryFn: () => api.getProcessesStatus(),
     refetchInterval: 5000,
-  });
-
-  // Fetch logs when requested
-  const { data: logsData } = useQuery({
-    queryKey: ['process-logs', selectedLogs],
-    queryFn: () => selectedLogs ? api.getProcessLogs(selectedLogs, 100) : null,
-    enabled: selectedLogs !== null,
   });
 
   // Mutations

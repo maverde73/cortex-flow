@@ -3,7 +3,6 @@
  */
 
 import { useState } from 'react';
-import type { MCPServerDetails } from '../types/api';
 
 interface MCPBrowserProps {
   servers: Array<{ id: string; name: string; description: string; repository?: string }>;

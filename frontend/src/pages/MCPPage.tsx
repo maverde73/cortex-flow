@@ -14,7 +14,6 @@ type ViewMode = 'installed' | 'browse';
 
 export function MCPPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('installed');
-  const [testingServer, setTestingServer] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { currentProject } = useStore();
@@ -42,25 +41,6 @@ export function MCPPage() {
     },
   });
 
-  // Test connection mutation
-  const testConnectionMutation = useMutation({
-    mutationFn: ({ serverName, request }: { serverName: string; request: any }) =>
-      api.testMCPConnection(projectName, serverName, request),
-    onSuccess: (data) => {
-      const status = data.status || (data.success ? 'success' : 'error');
-      const icon = status === 'success' ? '✅' : '❌';
-      const message = data.message || (data.success ? 'Connection successful' : 'Connection failed');
-      const tools = data.tools?.length ? `\n\nAvailable tools: ${data.tools.length}` : '';
-      alert(`${icon} MCP Server Test\n\nStatus: ${status}\n${message}${tools}`);
-    },
-    onError: (error: any) => {
-      const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
-      alert(`❌ Connection Test Failed\n\n${errorMsg}\n\nNote: Remote MCP servers testing may have limitations in the current backend.`);
-    },
-    onSettled: () => {
-      setTestingServer(null);
-    },
-  });
 
   // Handlers
   const handleAddServer = (serverId: string) => {
@@ -87,7 +67,7 @@ export function MCPPage() {
     setViewMode('installed');
   };
 
-  const handleUpdateServer = (serverId: string, serverConfig: any) => {
+  const handleUpdateServer = async (serverId: string, serverConfig: any) => {
     if (!mcpConfig) return;
 
     const newConfig = {
@@ -98,7 +78,26 @@ export function MCPPage() {
       },
     };
 
-    updateConfigMutation.mutate(newConfig);
+    // Save configuration first
+    updateConfigMutation.mutate(newConfig, {
+      onSuccess: async () => {
+        // Auto-test the server after successful save
+        try {
+          console.log(`Auto-testing MCP server '${serverId}' after save...`);
+          const result = await api.autoTestMCPServer(projectName, serverId, serverConfig);
+
+          if (result.success) {
+            console.log(`✅ Auto-test successful for '${serverId}':`, result.server_config?.status);
+            // Refresh MCP config to show updated status
+            queryClient.invalidateQueries({ queryKey: ['mcp-config', projectName] });
+          } else {
+            console.warn(`⚠️ Auto-test failed for '${serverId}':`, result.error);
+          }
+        } catch (error) {
+          console.error(`❌ Auto-test error for '${serverId}':`, error);
+        }
+      }
+    });
   };
 
   const handleRemoveServer = (serverId: string) => {
@@ -114,24 +113,7 @@ export function MCPPage() {
     updateConfigMutation.mutate(newConfig);
   };
 
-  const handleTestConnection = (serverId: string) => {
-    if (!mcpConfig) return;
-
-    const serverConfig = mcpConfig.servers[serverId];
-    // Ensure command field exists (required by backend even for remote servers)
-    const configWithCommand = {
-      ...serverConfig,
-      command: serverConfig.command || null,
-    };
-
-    setTestingServer(serverId);
-    testConnectionMutation.mutate({
-      serverName: serverId,
-      request: { server_config: configWithCommand },
-    });
-  };
-
-  const handleCreateServer = (serverName: string, serverConfig: any) => {
+  const handleCreateServer = async (serverName: string, serverConfig: any) => {
     if (!mcpConfig) return;
 
     // Check if server name already exists
@@ -148,8 +130,28 @@ export function MCPPage() {
       },
     };
 
-    updateConfigMutation.mutate(newConfig);
-    setShowCreateForm(false);
+    // Save configuration first
+    updateConfigMutation.mutate(newConfig, {
+      onSuccess: async () => {
+        setShowCreateForm(false);
+
+        // Auto-test the new server after successful creation
+        try {
+          console.log(`Auto-testing new MCP server '${serverName}'...`);
+          const result = await api.autoTestMCPServer(projectName, serverName, serverConfig);
+
+          if (result.success) {
+            console.log(`✅ Auto-test successful for '${serverName}':`, result.server_config?.status);
+            // Refresh MCP config to show updated status
+            queryClient.invalidateQueries({ queryKey: ['mcp-config', projectName] });
+          } else {
+            console.warn(`⚠️ Auto-test failed for '${serverName}':`, result.error);
+          }
+        } catch (error) {
+          console.error(`❌ Auto-test error for '${serverName}':`, error);
+        }
+      }
+    });
   };
 
   const installedServers = Object.keys(mcpConfig?.servers || {});
@@ -264,8 +266,6 @@ export function MCPPage() {
                     config={mcpConfig!.servers[serverId]}
                     onUpdate={handleUpdateServer}
                     onRemove={handleRemoveServer}
-                    onTest={handleTestConnection}
-                    isTesting={testingServer === serverId}
                   />
                 ))
               )}

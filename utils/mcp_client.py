@@ -71,7 +71,18 @@ class MCPClient:
         tool = await self._registry.get_tool(tool_name)
 
         if tool is None:
-            raise ValueError(f"MCP tool '{tool_name}' not found")
+            # Get list of available tools for helpful error message
+            available_tools = await self._registry.get_available_tools()
+            tool_names = [t.name for t in available_tools]
+
+            error_msg = (
+                f"MCP tool '{tool_name}' not found.\n"
+                f"Available MCP tools: {', '.join(tool_names) if tool_names else 'None'}\n"
+                f"\nHint: Make sure you're using the tool name, not the server name.\n"
+                f"      Server names look like: 'database-query-server-railway'\n"
+                f"      Tool names look like: 'execute_query', 'get_table_details'"
+            )
+            raise ValueError(error_msg)
 
         # Get server config
         server = await self._registry.get_server_config(
@@ -91,6 +102,42 @@ class MCPClient:
             return await self._call_remote_tool(server, tool_name, arguments)
         else:
             return await self._call_local_tool(server, tool_name, arguments)
+
+    async def read_resource(
+        self,
+        resource_uri: str,
+        server_name: str
+    ) -> str:
+        """
+        Read an MCP resource.
+
+        Args:
+            resource_uri: URI of the resource to read (e.g., "welcome://message")
+            server_name: Name of the MCP server that provides the resource
+
+        Returns:
+            Resource content as string
+
+        Raises:
+            ValueError: If server not found
+            RuntimeError: If resource read fails
+        """
+        # Get server config
+        server = await self._registry.get_server_config(server_name)
+
+        if server is None:
+            raise ValueError(f"MCP server '{server_name}' not found")
+
+        if server.status != "healthy":
+            raise RuntimeError(
+                f"MCP server '{server.name}' is not healthy (status: {server.status})"
+            )
+
+        # Read resource based on server type
+        if server.server_type == MCPServerType.REMOTE:
+            return await self._read_remote_resource(server, resource_uri)
+        else:
+            return await self._read_local_resource(server, resource_uri)
 
     async def _call_remote_tool(
         self,
@@ -210,7 +257,17 @@ class MCPClient:
                                 if content_item.get("type") == "text":
                                     text_content.append(content_item.get("text", ""))
 
-                            return "\n".join(text_content) if text_content else result
+                            text_output = "\n".join(text_content) if text_content else str(result)
+
+                            # Check if the output indicates an error from the MCP server
+                            # This handles cases where the server returns errors as text content
+                            # instead of using the JSON-RPC error format
+                            if text_output.startswith("Error executing tool"):
+                                error_msg = f"MCP tool '{tool_name}' failed: {text_output}"
+                                logger.error(error_msg)
+                                raise RuntimeError(error_msg)
+
+                            return text_output
 
                         return result
 
@@ -315,6 +372,229 @@ class MCPClient:
         except Exception as e:
             logger.error(f"Error calling local MCP tool '{tool_name}': {e}")
             raise RuntimeError(f"Local MCP tool call failed: {str(e)}") from e
+
+    async def _read_remote_resource(
+        self,
+        server: MCPServerConfig,
+        resource_uri: str
+    ) -> str:
+        """Read resource from remote MCP server via HTTP."""
+        last_error = None
+
+        for attempt in range(self.retry_attempts):
+            try:
+                headers = server.headers.copy()
+
+                # Streamable HTTP requires specific Accept header
+                if server.transport == MCPTransportType.STREAMABLE_HTTP:
+                    headers["Accept"] = "application/json, text/event-stream"
+
+                if server.api_key:
+                    headers["Authorization"] = f"Bearer {server.api_key}"
+
+                async with httpx.AsyncClient(timeout=server.timeout) as client:
+                    # For Streamable HTTP, initialize session if we don't have one
+                    if (server.transport == MCPTransportType.STREAMABLE_HTTP and
+                        server.name not in self._sessions):
+                        # Send initialize request
+                        init_payload = {
+                            "jsonrpc": "2.0",
+                            "id": 0,
+                            "method": "initialize",
+                            "params": {
+                                "protocolVersion": "2025-03-26",
+                                "capabilities": {},
+                                "clientInfo": {
+                                    "name": "cortex-flow-supervisor",
+                                    "version": "1.0"
+                                }
+                            }
+                        }
+
+                        init_response = await client.post(
+                            server.url,
+                            json=init_payload,
+                            headers=headers
+                        )
+
+                        if "mcp-session-id" in init_response.headers:
+                            session_id = init_response.headers["mcp-session-id"]
+                            self._sessions[server.name] = session_id
+                            headers["mcp-session-id"] = session_id
+
+                            # Send initialized notification
+                            await client.post(
+                                server.url,
+                                json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+                                headers=headers
+                            )
+                            logger.debug(f"Initialized MCP session for '{server.name}': {session_id}")
+
+                    # Add session ID if we have one
+                    if server.name in self._sessions:
+                        headers["mcp-session-id"] = self._sessions[server.name]
+
+                    logger.debug(
+                        f"Reading MCP resource '{resource_uri}' from '{server.name}' "
+                        f"(attempt {attempt + 1}/{self.retry_attempts})"
+                    )
+
+                    # MCP protocol: send resources/read request
+                    request_payload = {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "resources/read",
+                        "params": {
+                            "uri": resource_uri
+                        }
+                    }
+
+                    response = await client.post(
+                        server.url,
+                        json=request_payload,
+                        headers=headers
+                    )
+
+                    # Update session ID from response if present
+                    if "mcp-session-id" in response.headers:
+                        self._sessions[server.name] = response.headers["mcp-session-id"]
+
+                    response.raise_for_status()
+
+                    # For Streamable HTTP, response might be SSE format
+                    if response.headers.get("content-type") == "text/event-stream":
+                        # Parse SSE format
+                        import json as json_module
+                        text = response.text
+                        for line in text.split('\n'):
+                            if line.startswith('data: '):
+                                json_str = line[6:]
+                                data = json_module.loads(json_str)
+                                break
+                        else:
+                            data = {}
+                    else:
+                        data = response.json()
+
+                    # Parse MCP response
+                    if "result" in data:
+                        result = data["result"]
+
+                        # MCP resources/read returns content array
+                        if "contents" in result and isinstance(result["contents"], list):
+                            # Concatenate text content
+                            text_content = []
+                            for content_item in result["contents"]:
+                                if content_item.get("mimeType") == "text/plain":
+                                    text_content.append(content_item.get("text", ""))
+
+                            return "\n".join(text_content) if text_content else str(result)
+
+                        return str(result)
+
+                    elif "error" in data:
+                        error = data["error"]
+                        error_msg = f"MCP error: {error.get('message', 'Unknown error')}"
+                        logger.error(error_msg)
+                        raise RuntimeError(error_msg)
+
+                    else:
+                        logger.warning(f"Unexpected MCP response format: {data}")
+                        return str(data)
+
+            except httpx.ConnectError as e:
+                last_error = e
+                error_msg = f"MCP server '{server.name}' connection refused"
+
+                if attempt < self.retry_attempts - 1:
+                    wait_time = 2 ** attempt
+                    logger.debug(f"{error_msg}, retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error(f"{error_msg} after {self.retry_attempts} attempts")
+                    raise RuntimeError(error_msg) from e
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                error_msg = f"MCP server '{server.name}' timeout"
+
+                if attempt < self.retry_attempts - 1:
+                    logger.debug(f"{error_msg}, retrying...")
+                    await asyncio.sleep(1)
+                else:
+                    logger.error(f"{error_msg} after {self.retry_attempts} attempts")
+                    raise RuntimeError(error_msg) from e
+
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                status_code = e.response.status_code
+
+                if status_code >= 500 and attempt < self.retry_attempts - 1:
+                    logger.debug(f"MCP server error (HTTP {status_code}), retrying...")
+                    await asyncio.sleep(1)
+                    continue
+                else:
+                    error_msg = f"MCP server returned HTTP {status_code}"
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg) from e
+
+            except Exception as e:
+                last_error = e
+                logger.error(f"Unexpected error reading MCP resource '{resource_uri}': {e}")
+                raise RuntimeError(f"MCP resource read failed: {str(e)}") from e
+
+        # Should not reach here
+        raise RuntimeError(
+            f"Failed to read MCP resource '{resource_uri}' after {self.retry_attempts} attempts: "
+            f"{str(last_error)}"
+        )
+
+    async def _read_local_resource(
+        self,
+        server: MCPServerConfig,
+        resource_uri: str
+    ) -> str:
+        """Read resource from local MCP server module."""
+        try:
+            # Get the loaded module
+            registry = get_mcp_registry()
+            module = registry._loaded_modules.get(server.name)
+
+            if module is None:
+                raise RuntimeError(f"Local MCP module '{server.name}' not loaded")
+
+            # Get FastMCP instance
+            mcp_instance = None
+            if hasattr(module, 'mcp'):
+                mcp_instance = module.mcp
+            elif hasattr(module, 'app'):
+                mcp_instance = module.app
+
+            if mcp_instance is None:
+                raise RuntimeError(f"No MCP instance found in module '{server.name}'")
+
+            # Get the resource function
+            if hasattr(mcp_instance, '_resources'):
+                for resource_name, resource_func in mcp_instance._resources.items():
+                    # Match by URI pattern
+                    if hasattr(resource_func, 'uri_template'):
+                        # Check if URI matches template
+                        import re
+                        pattern = resource_func.uri_template.replace('*', '.*')
+                        if re.match(pattern, resource_uri):
+                            # Call the resource function
+                            if asyncio.iscoroutinefunction(resource_func):
+                                result = await resource_func()
+                            else:
+                                result = resource_func()
+
+                            return str(result)
+
+            raise ValueError(f"Resource '{resource_uri}' not found in local server '{server.name}'")
+
+        except Exception as e:
+            logger.error(f"Error reading local MCP resource '{resource_uri}': {e}")
+            raise RuntimeError(f"Local MCP resource read failed: {str(e)}") from e
 
 
 async def _get_tool_prompt(mcp_tool: MCPTool) -> Optional[str]:

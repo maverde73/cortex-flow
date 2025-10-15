@@ -13,7 +13,6 @@ import type {
   WorkflowExecuteRequest,
   ExecutionResult,
   ExecutionStep,
-  AgentsConfig
 } from '../types/api';
 
 type TabMode = 'agents' | 'workflows';
@@ -264,8 +263,32 @@ function WorkflowDebugger({ projectName }: WorkflowDebuggerProps) {
   // Execute workflow mutation
   const executeMutation = useMutation({
     mutationFn: (request: WorkflowExecuteRequest) => api.executeWorkflow(request),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // Set initial result immediately
       setResult(data);
+
+      // If execution_id is present, fetch detailed logs
+      if (data.execution_id) {
+        try {
+          const logsResponse = await api.getWorkflowLogs(data.execution_id);
+
+          // Update result with logs if fetch was successful
+          if (logsResponse.success && logsResponse.steps.length > 0) {
+            setResult({
+              ...data,
+              steps: logsResponse.steps,  // Replace steps with logs
+              metadata: {
+                ...data.metadata,
+                ...logsResponse.metadata,
+                logs_source: 'file',  // Mark that steps came from log file
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch workflow logs:', error);
+          // Keep the initial result if logs fetch fails
+        }
+      }
     },
   });
 
@@ -377,6 +400,239 @@ function WorkflowDebugger({ projectName }: WorkflowDebuggerProps) {
 }
 
 // ============================================================================
+// Step Detail View Component
+// ============================================================================
+
+interface StepDetailViewProps {
+  step: ExecutionStep;
+}
+
+function StepDetailView({ step }: StepDetailViewProps) {
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, section: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSection(section);
+    setTimeout(() => setCopiedSection(null), 2000);
+  };
+
+  const truncate = (text: string, maxLength: number = 1000) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + `... (${text.length - maxLength} more chars)`;
+  };
+
+  const formatJson = (obj: any) => {
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch {
+      return String(obj);
+    }
+  };
+
+  const renderCopyButton = (content: string, section: string) => (
+    <button
+      onClick={() => copyToClipboard(content, section)}
+      className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+    >
+      {copiedSection === section ? '✓ Copied' : 'Copy'}
+    </button>
+  );
+
+  // Render different views based on agent type
+  const renderLLMDetails = () => (
+    <div className="space-y-4">
+      {step.metadata.instruction && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">📄 Instruction (Prompt)</span>
+            {renderCopyButton(step.metadata.instruction, 'instruction')}
+          </div>
+          <pre className="text-xs bg-white p-3 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap">
+            {truncate(step.metadata.instruction, 2000)}
+          </pre>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-1">⚙️ Configuration</div>
+          <div className="text-xs bg-white p-2 rounded border border-gray-200">
+            {step.metadata.model && <div><strong>Model:</strong> {step.metadata.model}</div>}
+            {step.metadata.provider && <div><strong>Provider:</strong> {step.metadata.provider}</div>}
+            {step.metadata.temperature !== undefined && <div><strong>Temperature:</strong> {step.metadata.temperature}</div>}
+            {step.metadata.max_tokens && <div><strong>Max Tokens:</strong> {step.metadata.max_tokens}</div>}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-1">⏱️ Execution</div>
+          <div className="text-xs bg-white p-2 rounded border border-gray-200">
+            {step.metadata.execution_time && <div><strong>Time:</strong> {step.metadata.execution_time.toFixed(2)}s</div>}
+            {step.metadata.output_length && <div><strong>Output Length:</strong> {step.metadata.output_length} chars</div>}
+            {step.iteration > 1 && <div><strong>Retry:</strong> Attempt {step.iteration}</div>}
+          </div>
+        </div>
+      </div>
+
+      {step.content && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">📤 Output</span>
+            {renderCopyButton(step.content, 'output')}
+          </div>
+          <pre className="text-xs bg-white p-3 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap">
+            {truncate(step.content, 2000)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderMCPToolDetails = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-1">🔧 Tool Information</div>
+          <div className="text-xs bg-white p-2 rounded border border-gray-200">
+            {step.metadata.tool_name && <div><strong>Tool:</strong> {step.metadata.tool_name}</div>}
+            {step.metadata.server_name && <div><strong>Server:</strong> {step.metadata.server_name}</div>}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-1">⏱️ Execution</div>
+          <div className="text-xs bg-white p-2 rounded border border-gray-200">
+            {step.metadata.execution_time && <div><strong>Time:</strong> {step.metadata.execution_time.toFixed(2)}s</div>}
+            {step.metadata.output_length && <div><strong>Output Length:</strong> {step.metadata.output_length} chars</div>}
+          </div>
+        </div>
+      </div>
+
+      {step.metadata.instruction && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">📥 Input Arguments</span>
+            {renderCopyButton(step.metadata.instruction, 'input')}
+          </div>
+          <pre className="text-xs bg-white p-3 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap">
+            {truncate(step.metadata.instruction, 1500)}
+          </pre>
+        </div>
+      )}
+
+      {step.content && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">📤 Response</span>
+            {renderCopyButton(step.content, 'response')}
+          </div>
+          <pre className="text-xs bg-white p-3 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap">
+            {truncate(step.content, 2000)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderMCPResourceDetails = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-1">📚 Resource Information</div>
+          <div className="text-xs bg-white p-2 rounded border border-gray-200">
+            {step.metadata.resource_uri && <div><strong>URI:</strong> {step.metadata.resource_uri}</div>}
+            {step.metadata.server_name && <div><strong>Server:</strong> {step.metadata.server_name}</div>}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-1">⏱️ Execution</div>
+          <div className="text-xs bg-white p-2 rounded border border-gray-200">
+            {step.metadata.execution_time && <div><strong>Time:</strong> {step.metadata.execution_time.toFixed(2)}s</div>}
+            {step.metadata.output_length && <div><strong>Output Length:</strong> {step.metadata.output_length} chars</div>}
+          </div>
+        </div>
+      </div>
+
+      {step.content && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">📤 Resource Content</span>
+            {renderCopyButton(step.content, 'content')}
+          </div>
+          <pre className="text-xs bg-white p-3 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap">
+            {truncate(step.content, 2000)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderGenericDetails = () => (
+    <div className="space-y-4">
+      {step.content && (
+        <div>
+          <div className="text-sm font-semibold text-gray-700 mb-2">📄 Content</div>
+          <pre className="text-xs bg-white p-3 rounded border border-gray-200 overflow-x-auto whitespace-pre-wrap">
+            {truncate(step.content, 2000)}
+          </pre>
+        </div>
+      )}
+
+      {Object.keys(step.metadata).length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">🔍 Metadata</span>
+            {renderCopyButton(formatJson(step.metadata), 'metadata')}
+          </div>
+          <pre className="text-xs bg-white p-3 rounded border border-gray-200 overflow-x-auto">
+            {formatJson(step.metadata)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+
+  // Determine which view to render based on agent type
+  let content;
+  if (step.agent === 'llm') {
+    content = renderLLMDetails();
+  } else if (step.agent === 'mcp_tool') {
+    content = renderMCPToolDetails();
+  } else if (step.agent === 'mcp_resource') {
+    content = renderMCPResourceDetails();
+  } else {
+    content = renderGenericDetails();
+  }
+
+  return (
+    <div className="px-4 py-4 bg-gray-50 border-t border-gray-200">
+      {/* Error section if present */}
+      {step.metadata.error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+          <div className="text-sm font-semibold text-red-700 mb-1">⚠️ Error</div>
+          <div className="text-xs text-red-900 whitespace-pre-wrap">{step.metadata.error}</div>
+        </div>
+      )}
+
+      {content}
+
+      {/* Additional metadata at bottom */}
+      {Object.keys(step.metadata).length > 0 && (
+        <details className="mt-4 text-xs">
+          <summary className="cursor-pointer font-medium text-gray-700 hover:text-gray-900">
+            📋 Full Raw Metadata
+          </summary>
+          <pre className="mt-2 p-3 bg-white rounded border border-gray-200 overflow-x-auto">
+            {formatJson(step.metadata)}
+          </pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Execution Result View Component
 // ============================================================================
 
@@ -460,12 +716,16 @@ function ExecutionResultView({ result }: ExecutionResultViewProps) {
       </div>
 
       {/* Execution Steps */}
-      {result.steps.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Execution Trace ({result.steps.length} steps)
-          </h3>
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Execution Trace ({result.steps.length} steps)
+        </h3>
 
+        {result.steps.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No execution steps recorded. The workflow may have failed before logging began.
+          </div>
+        ) : (
           <div className="space-y-2">
             {result.steps.map((step, index) => (
               <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -499,25 +759,13 @@ function ExecutionResultView({ result }: ExecutionResultViewProps) {
                 </button>
 
                 {expandedSteps.has(index) && (
-                  <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                    <div className="text-sm text-gray-900 whitespace-pre-wrap mb-3">
-                      {step.content}
-                    </div>
-                    {Object.keys(step.metadata).length > 0 && (
-                      <details className="text-xs text-gray-600">
-                        <summary className="cursor-pointer font-medium">Metadata</summary>
-                        <pre className="mt-2 p-2 bg-white rounded border border-gray-200 overflow-x-auto">
-                          {JSON.stringify(step.metadata, null, 2)}
-                        </pre>
-                      </details>
-                    )}
-                  </div>
+                  <StepDetailView step={step} />
                 )}
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Metadata */}
       {Object.keys(result.metadata).length > 0 && (

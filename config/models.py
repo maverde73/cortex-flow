@@ -110,6 +110,11 @@ class MCPServerConfig(BaseModel):
     prompts_file: Optional[str] = Field(default=None, description="Path to manual prompts file")
     prompt_tool_association: Optional[str] = Field(default=None, description="Tool to associate prompt with")
 
+    # Auto-testing and health monitoring
+    test_results: Optional[Dict[str, Any]] = Field(default=None, description="Cached test results from last auto-test")
+    last_tested: Optional[str] = Field(default=None, description="ISO 8601 timestamp of last test execution")
+    status: Optional[str] = Field(default="untested", description="Server health status: healthy|unhealthy|untested")
+
 
 class MCPClientConfig(BaseModel):
     """MCP client configuration"""
